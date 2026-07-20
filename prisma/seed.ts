@@ -377,6 +377,95 @@ async function main() {
     });
   }
 
+  const existingCustomerCount = await prisma.customer.count({ where: { restaurantId: restaurant.id } });
+  if (existingCustomerCount === 0) {
+    const ananya = await prisma.customer.create({
+      data: {
+        restaurantId: restaurant.id,
+        name: "Ananya Sharma",
+        phone: "9876500001",
+        email: "ananya.sharma@example.com",
+        loyaltyPoints: 1200,
+        lifetimePoints: 1500,
+        membershipTier: "GOLD",
+        referralCode: tableCode(),
+      },
+    });
+    await prisma.loyaltyTransaction.createMany({
+      data: [
+        { customerId: ananya.id, restaurantId: restaurant.id, type: "EARNED", points: 500, note: "Order #1042" },
+        { customerId: ananya.id, restaurantId: restaurant.id, type: "EARNED", points: 700, note: "Order #1078" },
+        { customerId: ananya.id, restaurantId: restaurant.id, type: "REDEEMED", points: -300, note: "Redeemed at checkout" },
+        { customerId: ananya.id, restaurantId: restaurant.id, type: "EARNED", points: 300, note: "Order #1103" },
+      ],
+    });
+
+    const rahul = await prisma.customer.create({
+      data: {
+        restaurantId: restaurant.id,
+        name: "Rahul Verma",
+        phone: "9876500002",
+        email: "rahul.verma@example.com",
+        loyaltyPoints: 250,
+        lifetimePoints: 250,
+        membershipTier: "SILVER",
+        referralCode: tableCode(),
+        referredByCustomerId: ananya.id,
+      },
+    });
+    await prisma.loyaltyTransaction.create({
+      data: { customerId: rahul.id, restaurantId: restaurant.id, type: "EARNED", points: 250, note: "Order #1110" },
+    });
+    // Rahul's first paid order already triggered Ananya's referral bonus.
+    await prisma.loyaltyTransaction.create({
+      data: {
+        customerId: ananya.id,
+        restaurantId: restaurant.id,
+        type: "REFERRAL_BONUS",
+        points: 50,
+        note: "Referral bonus for Rahul Verma's first order",
+      },
+    });
+    await prisma.customer.update({
+      where: { id: ananya.id },
+      data: { loyaltyPoints: { increment: 50 }, lifetimePoints: { increment: 50 } },
+    });
+
+    await prisma.customer.create({
+      data: {
+        restaurantId: restaurant.id,
+        name: "Priya Nair",
+        phone: "9876500003",
+        referralCode: tableCode(),
+      },
+    });
+
+    const in30Days = new Date();
+    in30Days.setDate(in30Days.getDate() + 30);
+
+    await prisma.coupon.createMany({
+      data: [
+        {
+          restaurantId: restaurant.id,
+          code: "WELCOME10",
+          type: "PERCENT",
+          value: 10,
+          minOrderValue: 200,
+          maxDiscount: 100,
+          validUntil: in30Days,
+        },
+        {
+          restaurantId: restaurant.id,
+          code: "FLAT50",
+          type: "FLAT",
+          value: 50,
+          minOrderValue: 300,
+          usageLimit: 100,
+        },
+      ],
+    });
+  }
+
   console.log("Seed complete.");
   console.log("Demo login password for all accounts: demo1234");
   console.log(

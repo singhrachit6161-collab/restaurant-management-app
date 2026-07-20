@@ -104,29 +104,55 @@ enum SupplierPaymentMethod {
   CHEQUE
 }
 
-model Restaurant {
-  id                   String   @id @default(cuid())
-  name                 String
-  address              String?
-  gstNumber            String?
-  currency             String   @default("INR")
-  taxRatePercent       Float    @default(5)
-  serviceChargePercent Float    @default(0)
-  logoUrl              String?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+enum MembershipTier {
+  NONE
+  SILVER
+  GOLD
+  PLATINUM
+}
 
-  users            User[]
-  tables           Table[]
-  categories       MenuCategory[]
-  items            MenuItem[]
-  orders           Order[]
-  invoices         Invoice[]
-  ingredients      Ingredient[]
-  suppliers        Supplier[]
-  purchaseOrders   PurchaseOrder[]
-  supplierInvoices SupplierInvoice[]
-  supplierPayments SupplierPayment[]
+enum LoyaltyTransactionType {
+  EARNED
+  REDEEMED
+  ADJUSTMENT
+  REFERRAL_BONUS
+}
+
+enum CouponType {
+  PERCENT
+  FLAT
+}
+
+model Restaurant {
+  id                     String   @id @default(cuid())
+  name                   String
+  address                String?
+  gstNumber              String?
+  currency               String   @default("INR")
+  taxRatePercent         Float    @default(5)
+  serviceChargePercent   Float    @default(0)
+  logoUrl                String?
+  loyaltyPointsPerAmount Float    @default(1)
+  loyaltyRedemptionValue Float    @default(0.5)
+  referralBonusPoints    Int      @default(50)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  users               User[]
+  tables              Table[]
+  categories          MenuCategory[]
+  items               MenuItem[]
+  orders              Order[]
+  invoices            Invoice[]
+  ingredients         Ingredient[]
+  suppliers           Supplier[]
+  purchaseOrders      PurchaseOrder[]
+  supplierInvoices    SupplierInvoice[]
+  supplierPayments    SupplierPayment[]
+  customers           Customer[]
+  loyaltyTransactions LoyaltyTransaction[]
+  coupons             Coupon[]
+  couponRedemptions   CouponRedemption[]
 }
 
 model User {
@@ -253,34 +279,43 @@ model StockMovement {
 }
 
 model Order {
-  id            String         @id @default(cuid())
-  restaurantId  String
-  restaurant    Restaurant     @relation(fields: [restaurantId], references: [id])
-  orderNumber   Int
-  tableId       String?
-  table         Table?         @relation(fields: [tableId], references: [id])
-  type          OrderType      @default(DINE_IN)
-  status        OrderStatus    @default(PENDING)
-  customerName  String?
-  notes         String?
-  subtotal      Float          @default(0)
-  taxAmount     Float          @default(0)
-  serviceCharge Float          @default(0)
-  discount      Float          @default(0)
-  total         Float          @default(0)
-  paymentStatus PaymentStatus  @default(UNPAID)
-  paymentMethod PaymentMethod?
-  createdById   String?
-  createdBy     User?          @relation("OrderCreatedBy", fields: [createdById], references: [id])
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id             String         @id @default(cuid())
+  restaurantId   String
+  restaurant     Restaurant     @relation(fields: [restaurantId], references: [id])
+  orderNumber    Int
+  tableId        String?
+  table          Table?         @relation(fields: [tableId], references: [id])
+  type           OrderType      @default(DINE_IN)
+  status         OrderStatus    @default(PENDING)
+  customerName   String?
+  customerId     String?
+  customer       Customer?      @relation(fields: [customerId], references: [id])
+  couponId       String?
+  coupon         Coupon?        @relation(fields: [couponId], references: [id])
+  pointsRedeemed Int            @default(0)
+  notes          String?
+  subtotal       Float          @default(0)
+  taxAmount      Float          @default(0)
+  serviceCharge  Float          @default(0)
+  discount       Float          @default(0)
+  total          Float          @default(0)
+  paymentStatus  PaymentStatus  @default(UNPAID)
+  paymentMethod  PaymentMethod?
+  createdById    String?
+  createdBy      User?          @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  items   OrderItem[]
-  invoice Invoice?
+  items               OrderItem[]
+  invoice             Invoice?
+  loyaltyTransactions LoyaltyTransaction[]
+  couponRedemption    CouponRedemption?
 
   @@index([restaurantId])
   @@index([tableId])
   @@index([status])
+  @@index([customerId])
+  @@index([couponId])
 }
 
 model OrderItem {
@@ -414,4 +449,88 @@ model SupplierPayment {
   @@index([restaurantId])
   @@index([supplierId])
   @@index([invoiceId])
+}
+
+model Customer {
+  id                   String         @id @default(cuid())
+  restaurantId         String
+  restaurant           Restaurant     @relation(fields: [restaurantId], references: [id])
+  name                 String
+  phone                String
+  email                String?
+  birthday             DateTime?
+  anniversary          DateTime?
+  loyaltyPoints        Float          @default(0)
+  lifetimePoints       Float          @default(0)
+  membershipTier       MembershipTier @default(NONE)
+  referralCode         String         @unique
+  referredByCustomerId String?
+  referredByCustomer   Customer?      @relation("Referrals", fields: [referredByCustomerId], references: [id])
+  createdAt            DateTime       @default(now())
+
+  orders              Order[]
+  loyaltyTransactions LoyaltyTransaction[]
+  couponRedemptions   CouponRedemption[]
+  referrals           Customer[]           @relation("Referrals")
+
+  @@unique([restaurantId, phone])
+  @@index([restaurantId])
+}
+
+model LoyaltyTransaction {
+  id           String                 @id @default(cuid())
+  customerId   String
+  customer     Customer               @relation(fields: [customerId], references: [id])
+  restaurantId String
+  restaurant   Restaurant             @relation(fields: [restaurantId], references: [id])
+  orderId      String?
+  order        Order?                 @relation(fields: [orderId], references: [id])
+  type         LoyaltyTransactionType
+  points       Float
+  note         String?
+  createdAt    DateTime               @default(now())
+
+  @@index([customerId])
+  @@index([restaurantId])
+  @@index([orderId])
+}
+
+model Coupon {
+  id                    String     @id @default(cuid())
+  restaurantId          String
+  restaurant            Restaurant @relation(fields: [restaurantId], references: [id])
+  code                  String
+  type                  CouponType
+  value                 Float
+  minOrderValue         Float?
+  maxDiscount           Float?
+  usageLimit            Int?
+  usageLimitPerCustomer Int?
+  validFrom             DateTime?
+  validUntil            DateTime?
+  active                Boolean    @default(true)
+  createdAt             DateTime   @default(now())
+
+  orders      Order[]
+  redemptions CouponRedemption[]
+
+  @@unique([restaurantId, code])
+  @@index([restaurantId])
+}
+
+model CouponRedemption {
+  id              String      @id @default(cuid())
+  couponId        String
+  coupon          Coupon      @relation(fields: [couponId], references: [id])
+  orderId         String      @unique
+  order           Order       @relation(fields: [orderId], references: [id])
+  customerId      String?
+  customer        Customer?   @relation(fields: [customerId], references: [id])
+  discountApplied Float
+  createdAt       DateTime    @default(now())
+  restaurant      Restaurant? @relation(fields: [restaurantId], references: [id])
+  restaurantId    String?
+
+  @@index([couponId])
+  @@index([customerId])
 }

@@ -4,7 +4,7 @@ import { use, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Search, Plus, Minus, ShoppingCart, Flame, Star, Clock, ChefHat } from "lucide-react";
+import { Search, Plus, Minus, ShoppingCart, Flame, Star, Clock, ChefHat, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,9 +38,16 @@ interface MenuCategory {
 }
 
 interface MenuResponse {
-  restaurant: { name: string; currency: string };
+  restaurant: { name: string; currency: string; loyaltyRedemptionValue: number };
   table: { id: string; name: string };
   categories: MenuCategory[];
+}
+
+interface CustomerLookup {
+  found: boolean;
+  name?: string;
+  loyaltyPoints?: number;
+  membershipTier?: string;
 }
 
 interface CartLine {
@@ -58,6 +65,13 @@ export default function OrderMenuPage({ params }: { params: Promise<{ code: stri
   const [cartOpen, setCartOpen] = useState(false);
   const [notesItem, setNotesItem] = useState<MenuItem | null>(null);
   const [customerName, setCustomerName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [referralCode, setReferralCode] = useState("");
+  const [lookup, setLookup] = useState<CustomerLookup | null>(null);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponError, setCouponError] = useState("");
+  const [redeemPoints, setRedeemPoints] = useState("");
   const [placing, setPlacing] = useState(false);
 
   const { data, isLoading, error } = useQuery<MenuResponse>({
@@ -82,6 +96,38 @@ export default function OrderMenuPage({ params }: { params: Promise<{ code: stri
   const cartLines = Object.values(cart);
   const cartTotal = cartLines.reduce((sum, l) => sum + l.item.price * l.quantity, 0);
   const cartCount = cartLines.reduce((sum, l) => sum + l.quantity, 0);
+
+  const redemptionValue = data?.restaurant.loyaltyRedemptionValue ?? 0;
+  const maxRedeemablePoints = lookup?.found ? Math.floor(lookup.loyaltyPoints ?? 0) : 0;
+  const pointsToRedeem = Math.min(Number(redeemPoints) || 0, maxRedeemablePoints);
+  const pointsDiscount = Math.min(pointsToRedeem * redemptionValue, cartTotal - couponDiscount);
+  const finalTotal = Math.max(0, cartTotal - couponDiscount - pointsDiscount);
+
+  async function lookupCustomer() {
+    if (!phone || phone.length < 6) return;
+    const res = await fetch(`/api/public/customers/lookup?tableCode=${code}&phone=${encodeURIComponent(phone)}`);
+    const result: CustomerLookup = await res.json();
+    setLookup(result);
+    if (result.found && result.name && !customerName) setCustomerName(result.name);
+  }
+
+  async function applyCoupon() {
+    if (!couponCode) return;
+    setCouponError("");
+    const res = await fetch("/api/public/coupons/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tableCode: code, code: couponCode, subtotal: cartTotal, phone: phone || undefined }),
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      setCouponError(result.error || "Invalid coupon");
+      setCouponDiscount(0);
+      return;
+    }
+    setCouponDiscount(result.discount);
+    toast.success(`Coupon applied: -${formatCurrency(result.discount)}`);
+  }
 
   function addToCart(item: MenuItem) {
     setCart((prev) => ({
@@ -122,6 +168,10 @@ export default function OrderMenuPage({ params }: { params: Promise<{ code: stri
         body: JSON.stringify({
           tableCode: code,
           customerName: customerName || undefined,
+          phone: phone || undefined,
+          referralCode: referralCode || undefined,
+          couponCode: couponDiscount > 0 ? couponCode : undefined,
+          redeemPoints: pointsToRedeem > 0 ? pointsToRedeem : undefined,
           items: cartLines.map((l) => ({
             menuItemId: l.item.id,
             quantity: l.quantity,
@@ -327,9 +377,81 @@ export default function OrderMenuPage({ params }: { params: Promise<{ code: stri
               onChange={(e) => setCustomerName(e.target.value)}
             />
           </div>
-          <div className="flex items-center justify-between border-t pt-3 text-sm font-semibold">
-            <span>Total</span>
-            <span>{formatCurrency(cartTotal)}</span>
+
+          <div className="space-y-2 rounded-lg border p-3">
+            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase text-muted-foreground">
+              <Gift className="h-3.5 w-3.5" /> Loyalty & Coupons
+            </p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Phone (optional, earns points)"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                onBlur={lookupCustomer}
+              />
+            </div>
+            {lookup?.found && (
+              <p className="text-xs text-emerald-700">
+                Welcome back! You have {lookup.loyaltyPoints} points ({lookup.membershipTier}).
+              </p>
+            )}
+            {lookup && !lookup.found && phone && (
+              <Input
+                placeholder="Referral code (optional)"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+              />
+            )}
+            {maxRedeemablePoints > 0 && (
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Redeem points (max {maxRedeemablePoints})</label>
+                <Input
+                  type="number"
+                  value={redeemPoints}
+                  onChange={(e) => setRedeemPoints(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Coupon code"
+                value={couponCode}
+                onChange={(e) => {
+                  setCouponCode(e.target.value.toUpperCase());
+                  setCouponDiscount(0);
+                  setCouponError("");
+                }}
+              />
+              <Button variant="outline" size="sm" onClick={applyCoupon} disabled={!couponCode}>
+                Apply
+              </Button>
+            </div>
+            {couponError && <p className="text-xs text-destructive">{couponError}</p>}
+            {couponDiscount > 0 && <p className="text-xs text-emerald-700">Coupon applied: -{formatCurrency(couponDiscount)}</p>}
+          </div>
+
+          <div className="space-y-1 border-t pt-3 text-sm">
+            <div className="flex justify-between text-muted-foreground">
+              <span>Subtotal</span>
+              <span>{formatCurrency(cartTotal)}</span>
+            </div>
+            {couponDiscount > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Coupon discount</span>
+                <span>-{formatCurrency(couponDiscount)}</span>
+              </div>
+            )}
+            {pointsDiscount > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Points redeemed ({pointsToRedeem})</span>
+                <span>-{formatCurrency(pointsDiscount)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between text-base font-semibold">
+              <span>Total</span>
+              <span>{formatCurrency(finalTotal)}</span>
+            </div>
           </div>
           <p className="text-xs text-muted-foreground">
             Payment: Pay at counter (cash / UPI / card) after your meal.

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { computeTotals } from "@/lib/pricing";
+import { findOrCreateCustomer, previewRedemption, applyRedemption } from "@/lib/loyalty";
+import { validateCoupon, recordCouponRedemption } from "@/lib/coupons";
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const { tableCode, items, customerName, notes } = body;
+  const { tableCode, items, customerName, notes, phone, referralCode, couponCode, redeemPoints } = body;
 
   if (!tableCode || !Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: "Table and items are required" }, { status: 400 });
@@ -37,10 +39,35 @@ export async function POST(req: Request) {
     };
   });
 
+  let customerId: string | null = null;
+  if (phone && customerName) {
+    const customer = await findOrCreateCustomer(table.restaurantId, phone, customerName, referralCode);
+    customerId = customer.id;
+  }
+
+  let couponId: string | null = null;
+  let couponDiscount = 0;
+  if (couponCode) {
+    const result = await validateCoupon(table.restaurantId, couponCode, subtotal, customerId);
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+    couponId = result.coupon.id;
+    couponDiscount = result.discount;
+  }
+
+  let pointsToRedeem = 0;
+  let pointsDiscount = 0;
+  if (customerId && redeemPoints) {
+    const preview = await previewRedemption(customerId, table.restaurantId, Number(redeemPoints), subtotal - couponDiscount);
+    pointsToRedeem = preview.points;
+    pointsDiscount = preview.discount;
+  }
+
+  const totalDiscount = Math.round((couponDiscount + pointsDiscount) * 100) / 100;
   const { taxAmount, serviceCharge, total } = computeTotals({
     subtotal,
     taxRatePercent: restaurant.taxRatePercent,
     serviceChargePercent: restaurant.serviceChargePercent,
+    discount: totalDiscount,
   });
 
   const orderCount = await prisma.order.count({ where: { restaurantId: table.restaurantId } });
@@ -52,16 +79,22 @@ export async function POST(req: Request) {
       tableId: table.id,
       type: "ONLINE",
       customerName: customerName || null,
+      customerId,
+      couponId,
+      pointsRedeemed: pointsToRedeem,
       notes: notes || null,
       subtotal,
       taxAmount,
       serviceCharge,
-      discount: 0,
+      discount: totalDiscount,
       total,
       items: { create: orderItemsData },
     },
     include: { items: true },
   });
+
+  if (couponId) await recordCouponRedemption(couponId, order.id, customerId, couponDiscount);
+  if (customerId && pointsToRedeem > 0) await applyRedemption(customerId, table.restaurantId, pointsToRedeem, order.id);
 
   await prisma.table.update({ where: { id: table.id }, data: { status: "OCCUPIED" } });
 
