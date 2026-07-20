@@ -2,7 +2,7 @@
 
 An all-in-one restaurant business management system — QR ordering, table management, a kitchen display system, POS billing, and an owner/manager dashboard, built as a single Next.js app.
 
-This is a **Phase 1 MVP** (auth & roles, menu management, QR ordering, kitchen display, POS, billing, table management, live dashboard analytics) plus an **inventory & recipe costing** module. It's the foundation for the larger vision (CRM, reservations, multi-branch, SaaS billing, AI features) described in the original spec — those are not yet built.
+This is a **Phase 1 MVP** (auth & roles, menu management, QR ordering, kitchen display, POS, billing, table management, live dashboard analytics) plus **inventory & recipe costing** and **purchase management** (suppliers, purchase orders, invoices, payments/dues). It's the foundation for the larger vision (CRM, reservations, multi-branch, SaaS billing, AI features) described in the original spec — those are not yet built.
 
 ## Stack
 
@@ -49,6 +49,7 @@ To try the customer QR ordering flow, open `/dashboard/tables` as the owner, cli
 - **Staff** (`/dashboard/staff`) — add staff accounts per role, activate/deactivate.
 - **Orders** (`/dashboard/orders`) — recent order log across dine-in/takeaway/online.
 - **Inventory & recipe costing** (`/dashboard/inventory` for Owner/Manager, `/inventory` for the Inventory Manager role) — raw material stock levels, low-stock/out-of-stock/expiring alerts, purchase & waste logging with a full stock-movement ledger per ingredient, and a recipe builder on each menu item (`/dashboard/menu`) that computes food cost and profit margin live. Stock is auto-deducted the moment an order's status moves to **Preparing** — whether that's the kitchen accepting it or a waiter appending items to an order already in progress.
+- **Purchase management** (`/dashboard/purchase-orders` + `/dashboard/suppliers` for Owner/Manager, mirrored under `/inventory/purchase-orders` + `/inventory/suppliers` for the Inventory Manager role) — supplier directory, purchase orders against existing ingredients, a "Receive Goods" action that posts entries into the same stock-movement ledger as the rest of Inventory (full or partial receipt, no separate GRN model needed), supplier invoices (auto-populated from what was received, editable), payments against an invoice or on account, and a per-supplier ledger with a running due-amount balance.
 
 ## Notable simplifications (documented, not hidden)
 
@@ -56,7 +57,8 @@ To try the customer QR ordering flow, open `/dashboard/tables` as the owner, cli
 - No payment gateway integration — "Pay at Counter" only; the POS/waiter "collect payment" flow marks an order paid and generates an invoice record.
 - "Real-time" updates are short-interval polling (TanStack Query `refetchInterval`), not WebSockets.
 - Single restaurant/tenant — multi-branch and the SaaS super-admin layer from the full spec are out of scope for this pass.
-- Purchase Orders / GRN / supplier ledger are not implemented — "Record Purchase" in Inventory is a stock-in action with a cost, not a full PO workflow. Expiry tracking is a single date per ingredient, not batch/lot-level FIFO.
+- Purchase order line items must reference an existing `Ingredient` — no untracked/free-text line items, so every receipt stays wired into the stock ledger. The old "Record Purchase" quick action in Inventory still exists as an informal, no-PO restock path.
+- Expiry tracking is a single date per ingredient, not batch/lot-level FIFO.
 - CRM/loyalty, reservations, multi-branch, and AI features are not implemented yet.
 
 ## Useful scripts
