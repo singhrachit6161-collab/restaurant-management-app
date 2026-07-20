@@ -10,6 +10,7 @@ export async function GET() {
 
   const ingredients = await prisma.ingredient.findMany({
     where: { restaurantId: session.user.restaurantId },
+    include: { supplier: { select: { id: true, name: true } } },
     orderBy: { name: "asc" },
   });
   return NextResponse.json(ingredients);
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
       currentStock: initialStock,
       lowStockThreshold: body.lowStockThreshold != null ? Number(body.lowStockThreshold) : 0,
       expiryDate: body.expiryDate ? new Date(body.expiryDate) : null,
-      supplierName: body.supplierName || null,
+      supplierId: body.supplierId || null,
     },
   });
 

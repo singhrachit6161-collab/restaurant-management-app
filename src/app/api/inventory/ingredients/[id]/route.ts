@@ -22,7 +22,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       costPerUnit: body.costPerUnit != null ? Number(body.costPerUnit) : undefined,
       lowStockThreshold: body.lowStockThreshold != null ? Number(body.lowStockThreshold) : undefined,
       expiryDate: body.expiryDate !== undefined ? (body.expiryDate ? new Date(body.expiryDate) : null) : undefined,
-      supplierName: body.supplierName !== undefined ? body.supplierName || null : undefined,
+      supplierId: body.supplierId !== undefined ? body.supplierId || null : undefined,
     },
   });
   return NextResponse.json(ingredient);
@@ -38,10 +38,19 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const recipeUseCount = await prisma.recipeIngredient.count({ where: { ingredientId: id } });
+  const [recipeUseCount, poUseCount] = await Promise.all([
+    prisma.recipeIngredient.count({ where: { ingredientId: id } }),
+    prisma.purchaseOrderItem.count({ where: { ingredientId: id } }),
+  ]);
   if (recipeUseCount > 0) {
     return NextResponse.json(
       { error: "This ingredient is used in one or more recipes. Remove it from those recipes first." },
+      { status: 400 }
+    );
+  }
+  if (poUseCount > 0) {
+    return NextResponse.json(
+      { error: "This ingredient appears on one or more purchase orders and can't be deleted." },
       { status: 400 }
     );
   }

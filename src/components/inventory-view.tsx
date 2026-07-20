@@ -55,7 +55,13 @@ interface Ingredient {
   currentStock: number;
   lowStockThreshold: number;
   expiryDate: string | null;
-  supplierName: string | null;
+  supplierId: string | null;
+  supplier: { id: string; name: string } | null;
+}
+
+interface Supplier {
+  id: string;
+  name: string;
 }
 
 interface Movement {
@@ -75,7 +81,7 @@ const emptyForm = {
   currentStock: "",
   lowStockThreshold: "",
   expiryDate: "",
-  supplierName: "",
+  supplierId: "",
 };
 
 const EXPIRING_SOON_DAYS = 3;
@@ -109,6 +115,11 @@ export function InventoryView() {
     refetchInterval: 15000,
   });
 
+  const { data: suppliers } = useQuery<Supplier[]>({
+    queryKey: ["suppliers"],
+    queryFn: async () => (await fetch("/api/suppliers")).json(),
+  });
+
   const { data: movements } = useQuery<Movement[]>({
     queryKey: ["ingredient-movements", historyIngredient?.id],
     queryFn: async () => (await fetch(`/api/inventory/ingredients/${historyIngredient!.id}/movements`)).json(),
@@ -138,7 +149,7 @@ export function InventoryView() {
         currentStock: form.currentStock ? Number(form.currentStock) : 0,
         lowStockThreshold: form.lowStockThreshold ? Number(form.lowStockThreshold) : 0,
         expiryDate: form.expiryDate || null,
-        supplierName: form.supplierName || null,
+        supplierId: form.supplierId || null,
       };
       const url = form.id ? `/api/inventory/ingredients/${form.id}` : "/api/inventory/ingredients";
       const res = await fetch(url, {
@@ -198,7 +209,7 @@ export function InventoryView() {
       currentStock: "",
       lowStockThreshold: String(ingredient.lowStockThreshold),
       expiryDate: ingredient.expiryDate ? ingredient.expiryDate.slice(0, 10) : "",
-      supplierName: ingredient.supplierName ?? "",
+      supplierId: ingredient.supplierId ?? "",
     });
     setFormOpen(true);
   }
@@ -250,7 +261,7 @@ export function InventoryView() {
                       {ingredient.currentStock} {ingredient.unit.toLowerCase()}
                     </TableCell>
                     <TableCell>{formatCurrency(ingredient.costPerUnit)}</TableCell>
-                    <TableCell className="text-muted-foreground">{ingredient.supplierName ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{ingredient.supplier?.name ?? "—"}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {ingredient.expiryDate ? new Date(ingredient.expiryDate).toLocaleDateString() : "—"}
                     </TableCell>
@@ -371,10 +382,22 @@ export function InventoryView() {
             </div>
             <div className="space-y-1.5">
               <Label>Supplier</Label>
-              <Input
-                value={form.supplierName}
-                onChange={(e) => setForm({ ...form, supplierName: e.target.value })}
-              />
+              <Select
+                value={form.supplierId || "none"}
+                onValueChange={(v) => setForm({ ...form, supplierId: v === "none" ? "" : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="No supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No supplier</SelectItem>
+                  {suppliers?.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

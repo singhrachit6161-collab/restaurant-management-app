@@ -122,36 +122,52 @@ async function main() {
   const soon = new Date();
   soon.setDate(soon.getDate() + 2);
 
+  const suppliersData = [
+    { name: "Krishna Grains", contactPerson: "Vikram Krishna", phone: "+91 98450 11223", email: "orders@krishnagrains.example" },
+    { name: "Farm Fresh Poultry", contactPerson: "Deepak Rao", phone: "+91 98450 22334", email: "sales@farmfreshpoultry.example" },
+    { name: "Amul Dairy", contactPerson: "Amul Distribution Desk", phone: "+91 98450 33445", email: "b2b@amuldairy.example" },
+    { name: "Local Mandi", contactPerson: "Ramesh Traders", phone: "+91 98450 44556" },
+    { name: "Sunrise Oils", contactPerson: "Anita Shah", phone: "+91 98450 55667", email: "orders@sunriseoils.example" },
+    { name: "Spice Bazaar", contactPerson: "Farhan Ali", phone: "+91 98450 66778", email: "wholesale@spicebazaar.example" },
+  ];
+
+  const supplierIds: Record<string, string> = {};
+  for (const s of suppliersData) {
+    const existing = await prisma.supplier.findFirst({ where: { restaurantId: restaurant.id, name: s.name } });
+    const supplier = existing ?? (await prisma.supplier.create({ data: { ...s, restaurantId: restaurant.id } }));
+    supplierIds[s.name] = supplier.id;
+  }
+
   const ingredientsData: {
     name: string;
     unit: IngredientUnit;
     costPerUnit: number;
     currentStock: number;
     lowStockThreshold: number;
-    supplierName: string;
+    supplier: string;
     expiryDate?: Date;
   }[] = [
-    { name: "Basmati Rice", unit: IngredientUnit.KG, costPerUnit: 120, currentStock: 20, lowStockThreshold: 4, supplierName: "Krishna Grains" },
-    { name: "Chicken", unit: IngredientUnit.KG, costPerUnit: 220, currentStock: 15, lowStockThreshold: 3, supplierName: "Farm Fresh Poultry" },
-    { name: "Paneer", unit: IngredientUnit.KG, costPerUnit: 320, currentStock: 1.5, lowStockThreshold: 2, supplierName: "Amul Dairy" },
-    { name: "Tomato", unit: IngredientUnit.KG, costPerUnit: 40, currentStock: 10, lowStockThreshold: 2, supplierName: "Local Mandi" },
-    { name: "Onion", unit: IngredientUnit.KG, costPerUnit: 30, currentStock: 12, lowStockThreshold: 2, supplierName: "Local Mandi" },
-    { name: "Cooking Oil", unit: IngredientUnit.L, costPerUnit: 150, currentStock: 10, lowStockThreshold: 2, supplierName: "Sunrise Oils" },
-    { name: "Butter", unit: IngredientUnit.KG, costPerUnit: 450, currentStock: 3, lowStockThreshold: 1, supplierName: "Amul Dairy" },
-    { name: "Fresh Cream", unit: IngredientUnit.L, costPerUnit: 280, currentStock: 4, lowStockThreshold: 1, supplierName: "Amul Dairy" },
-    { name: "Wheat Flour", unit: IngredientUnit.KG, costPerUnit: 45, currentStock: 15, lowStockThreshold: 3, supplierName: "Krishna Grains" },
-    { name: "Sugar", unit: IngredientUnit.KG, costPerUnit: 45, currentStock: 8, lowStockThreshold: 2, supplierName: "Krishna Grains" },
-    { name: "Lime", unit: IngredientUnit.PCS, costPerUnit: 8, currentStock: 60, lowStockThreshold: 15, supplierName: "Local Mandi" },
-    { name: "Buttermilk", unit: IngredientUnit.L, costPerUnit: 60, currentStock: 5, lowStockThreshold: 1, supplierName: "Amul Dairy" },
-    { name: "Spice Mix", unit: IngredientUnit.KG, costPerUnit: 400, currentStock: 2, lowStockThreshold: 0.5, supplierName: "Spice Bazaar" },
-    { name: "Cabbage", unit: IngredientUnit.KG, costPerUnit: 35, currentStock: 5, lowStockThreshold: 1, supplierName: "Local Mandi" },
-    { name: "Spring Roll Wrapper", unit: IngredientUnit.PCS, costPerUnit: 5, currentStock: 100, lowStockThreshold: 20, supplierName: "Spice Bazaar" },
-    { name: "Khoya", unit: IngredientUnit.KG, costPerUnit: 280, currentStock: 2, lowStockThreshold: 0.5, supplierName: "Amul Dairy", expiryDate: soon },
-    { name: "Dal", unit: IngredientUnit.KG, costPerUnit: 90, currentStock: 6, lowStockThreshold: 1.5, supplierName: "Krishna Grains" },
+    { name: "Basmati Rice", unit: IngredientUnit.KG, costPerUnit: 120, currentStock: 20, lowStockThreshold: 4, supplier: "Krishna Grains" },
+    { name: "Chicken", unit: IngredientUnit.KG, costPerUnit: 220, currentStock: 15, lowStockThreshold: 3, supplier: "Farm Fresh Poultry" },
+    { name: "Paneer", unit: IngredientUnit.KG, costPerUnit: 320, currentStock: 1.5, lowStockThreshold: 2, supplier: "Amul Dairy" },
+    { name: "Tomato", unit: IngredientUnit.KG, costPerUnit: 40, currentStock: 10, lowStockThreshold: 2, supplier: "Local Mandi" },
+    { name: "Onion", unit: IngredientUnit.KG, costPerUnit: 30, currentStock: 12, lowStockThreshold: 2, supplier: "Local Mandi" },
+    { name: "Cooking Oil", unit: IngredientUnit.L, costPerUnit: 150, currentStock: 10, lowStockThreshold: 2, supplier: "Sunrise Oils" },
+    { name: "Butter", unit: IngredientUnit.KG, costPerUnit: 450, currentStock: 3, lowStockThreshold: 1, supplier: "Amul Dairy" },
+    { name: "Fresh Cream", unit: IngredientUnit.L, costPerUnit: 280, currentStock: 4, lowStockThreshold: 1, supplier: "Amul Dairy" },
+    { name: "Wheat Flour", unit: IngredientUnit.KG, costPerUnit: 45, currentStock: 15, lowStockThreshold: 3, supplier: "Krishna Grains" },
+    { name: "Sugar", unit: IngredientUnit.KG, costPerUnit: 45, currentStock: 8, lowStockThreshold: 2, supplier: "Krishna Grains" },
+    { name: "Lime", unit: IngredientUnit.PCS, costPerUnit: 8, currentStock: 60, lowStockThreshold: 15, supplier: "Local Mandi" },
+    { name: "Buttermilk", unit: IngredientUnit.L, costPerUnit: 60, currentStock: 5, lowStockThreshold: 1, supplier: "Amul Dairy" },
+    { name: "Spice Mix", unit: IngredientUnit.KG, costPerUnit: 400, currentStock: 2, lowStockThreshold: 0.5, supplier: "Spice Bazaar" },
+    { name: "Cabbage", unit: IngredientUnit.KG, costPerUnit: 35, currentStock: 5, lowStockThreshold: 1, supplier: "Local Mandi" },
+    { name: "Spring Roll Wrapper", unit: IngredientUnit.PCS, costPerUnit: 5, currentStock: 100, lowStockThreshold: 20, supplier: "Spice Bazaar" },
+    { name: "Khoya", unit: IngredientUnit.KG, costPerUnit: 280, currentStock: 2, lowStockThreshold: 0.5, supplier: "Amul Dairy", expiryDate: soon },
+    { name: "Dal", unit: IngredientUnit.KG, costPerUnit: 90, currentStock: 6, lowStockThreshold: 1.5, supplier: "Krishna Grains" },
   ];
 
   const ingredientIds: Record<string, string> = {};
-  for (const ing of ingredientsData) {
+  for (const { supplier, ...ing } of ingredientsData) {
     const existing = await prisma.ingredient.findFirst({
       where: { restaurantId: restaurant.id, name: ing.name },
     });
@@ -160,7 +176,7 @@ async function main() {
       continue;
     }
     const created = await prisma.ingredient.create({
-      data: { ...ing, restaurantId: restaurant.id },
+      data: { ...ing, restaurantId: restaurant.id, supplierId: supplierIds[supplier] },
     });
     ingredientIds[ing.name] = created.id;
     if (created.currentStock > 0) {
@@ -250,6 +266,114 @@ async function main() {
         ingredientId: ingredientIds[l.ingredient],
         quantity: l.quantity,
       })),
+    });
+  }
+
+  const existingPoCount = await prisma.purchaseOrder.count({ where: { restaurantId: restaurant.id } });
+  if (existingPoCount === 0) {
+    // PO 1: fully received and fully paid — demonstrates the whole lifecycle.
+    const po1 = await prisma.purchaseOrder.create({
+      data: {
+        restaurantId: restaurant.id,
+        poNumber: 7001,
+        supplierId: supplierIds["Farm Fresh Poultry"],
+        status: "SENT",
+        items: {
+          create: [{ ingredientId: ingredientIds["Chicken"], quantityOrdered: 10, unitCost: 215 }],
+        },
+      },
+      include: { items: true },
+    });
+    const po1Item = po1.items[0];
+    await prisma.$transaction([
+      prisma.purchaseOrderItem.update({ where: { id: po1Item.id }, data: { quantityReceived: 10 } }),
+      prisma.stockMovement.create({
+        data: {
+          ingredientId: po1Item.ingredientId,
+          type: "PURCHASE",
+          quantity: 10,
+          note: "PO #7001",
+          purchaseOrderId: po1.id,
+        },
+      }),
+      prisma.ingredient.update({ where: { id: po1Item.ingredientId }, data: { currentStock: { increment: 10 } } }),
+      prisma.purchaseOrder.update({ where: { id: po1.id }, data: { status: "RECEIVED" } }),
+    ]);
+    const po1Invoice = await prisma.supplierInvoice.create({
+      data: {
+        restaurantId: restaurant.id,
+        invoiceNumber: "FFP-INV-2201",
+        supplierId: supplierIds["Farm Fresh Poultry"],
+        purchaseOrderId: po1.id,
+        amount: 2150,
+        amountPaid: 2150,
+        status: "PAID",
+      },
+    });
+    await prisma.supplierPayment.create({
+      data: {
+        restaurantId: restaurant.id,
+        supplierId: supplierIds["Farm Fresh Poultry"],
+        invoiceId: po1Invoice.id,
+        amount: 2150,
+        method: "BANK_TRANSFER",
+        note: "Full settlement",
+      },
+    });
+
+    // PO 2: partially received, invoiced for what arrived, partially paid — leaves a due balance to demo.
+    const po2 = await prisma.purchaseOrder.create({
+      data: {
+        restaurantId: restaurant.id,
+        poNumber: 7002,
+        supplierId: supplierIds["Krishna Grains"],
+        status: "SENT",
+        items: {
+          create: [
+            { ingredientId: ingredientIds["Basmati Rice"], quantityOrdered: 30, unitCost: 118 },
+            { ingredientId: ingredientIds["Wheat Flour"], quantityOrdered: 20, unitCost: 44 },
+          ],
+        },
+      },
+      include: { items: true },
+    });
+    const riceItem = po2.items.find((i) => i.ingredientId === ingredientIds["Basmati Rice"])!;
+    const flourItem = po2.items.find((i) => i.ingredientId === ingredientIds["Wheat Flour"])!;
+    await prisma.$transaction([
+      prisma.purchaseOrderItem.update({ where: { id: riceItem.id }, data: { quantityReceived: 30 } }),
+      prisma.stockMovement.create({
+        data: { ingredientId: riceItem.ingredientId, type: "PURCHASE", quantity: 30, note: "PO #7002", purchaseOrderId: po2.id },
+      }),
+      prisma.ingredient.update({ where: { id: riceItem.ingredientId }, data: { currentStock: { increment: 30 } } }),
+      prisma.purchaseOrderItem.update({ where: { id: flourItem.id }, data: { quantityReceived: 10 } }),
+      prisma.stockMovement.create({
+        data: { ingredientId: flourItem.ingredientId, type: "PURCHASE", quantity: 10, note: "PO #7002", purchaseOrderId: po2.id },
+      }),
+      prisma.ingredient.update({ where: { id: flourItem.ingredientId }, data: { currentStock: { increment: 10 } } }),
+      prisma.purchaseOrder.update({ where: { id: po2.id }, data: { status: "PARTIALLY_RECEIVED" } }),
+    ]);
+    const po2Amount = 30 * 118 + 10 * 44; // = 3980, matches what's actually arrived so far
+    const po2Invoice = await prisma.supplierInvoice.create({
+      data: {
+        restaurantId: restaurant.id,
+        invoiceNumber: "KG-4471",
+        supplierId: supplierIds["Krishna Grains"],
+        purchaseOrderId: po2.id,
+        amount: po2Amount,
+        amountPaid: 2000,
+        status: "PARTIALLY_PAID",
+        dueDate: new Date(Date.now() + 14 * 86400000),
+      },
+    });
+    await prisma.supplierPayment.create({
+      data: {
+        restaurantId: restaurant.id,
+        supplierId: supplierIds["Krishna Grains"],
+        invoiceId: po2Invoice.id,
+        amount: 2000,
+        method: "UPI",
+        note: "Partial advance",
+      },
     });
   }
 

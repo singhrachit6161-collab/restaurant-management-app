@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { SignOutButton } from "@/components/sign-out-button";
+import { InventoryNav } from "@/components/inventory-nav";
 import { Warehouse } from "lucide-react";
 
 export default async function InventoryLayout({ children }: { children: React.ReactNode }) {
@@ -17,6 +18,7 @@ export default async function InventoryLayout({ children }: { children: React.Re
           <SignOutButton />
         </div>
       </header>
+      <InventoryNav />
       <main className="flex-1 bg-muted/30 p-4">{children}</main>
     </div>
   );

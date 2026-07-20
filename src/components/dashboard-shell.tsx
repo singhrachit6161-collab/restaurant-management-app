@@ -10,6 +10,8 @@ import {
   Users2,
   ClipboardList,
   Warehouse,
+  Truck,
+  ShoppingCart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -21,6 +23,8 @@ const NAV = [
   { href: "/dashboard/tables", label: "Tables", icon: Table2 },
   { href: "/dashboard/orders", label: "Orders", icon: ClipboardList },
   { href: "/dashboard/inventory", label: "Inventory", icon: Warehouse },
+  { href: "/dashboard/purchase-orders", label: "Purchase Orders", icon: ShoppingCart },
+  { href: "/dashboard/suppliers", label: "Suppliers", icon: Truck },
   { href: "/dashboard/staff", label: "Staff", icon: Users2 },
 ];
 
@@ -59,7 +63,7 @@ export function DashboardShell({
 
         <nav className="flex-1 space-y-1 px-3 py-4">
           {NAV.map((item) => {
-            const active = pathname === item.href;
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
             return (
               <Link
