@@ -2,7 +2,7 @@
 
 An all-in-one restaurant business management system — QR ordering, table management, a kitchen display system, POS billing, and an owner/manager dashboard, built as a single Next.js app.
 
-This is a **Phase 1 MVP** (auth & roles, menu management, QR ordering, kitchen display, POS, billing, table management, live dashboard analytics) plus **inventory & recipe costing**, **purchase management** (suppliers, purchase orders, invoices, payments/dues), and **CRM & loyalty** (customer profiles, points, membership tiers, referrals, coupons). It's the foundation for the larger vision (reservations, multi-branch, SaaS billing, AI features) described in the original spec — those are not yet built.
+This is a **Phase 1 MVP** (auth & roles, menu management, QR ordering, kitchen display, POS, billing, table management, live dashboard analytics) plus **inventory & recipe costing**, **purchase management** (suppliers, purchase orders, invoices, payments/dues), **CRM & loyalty** (customer profiles, points, membership tiers, referrals, coupons), and **reservation management** (staff and public table bookings, day-agenda view, table assignment/seating). It's the foundation for the larger vision (multi-branch, SaaS billing, AI features) described in the original spec — those are not yet built.
 
 ## Stack
 
@@ -51,6 +51,7 @@ To try the customer QR ordering flow, open `/dashboard/tables` as the owner, cli
 - **Inventory & recipe costing** (`/dashboard/inventory` for Owner/Manager, `/inventory` for the Inventory Manager role) — raw material stock levels, low-stock/out-of-stock/expiring alerts, purchase & waste logging with a full stock-movement ledger per ingredient, and a recipe builder on each menu item (`/dashboard/menu`) that computes food cost and profit margin live. Stock is auto-deducted the moment an order's status moves to **Preparing** — whether that's the kitchen accepting it or a waiter appending items to an order already in progress.
 - **Purchase management** (`/dashboard/purchase-orders` + `/dashboard/suppliers` for Owner/Manager, mirrored under `/inventory/purchase-orders` + `/inventory/suppliers` for the Inventory Manager role) — supplier directory, purchase orders against existing ingredients, a "Receive Goods" action that posts entries into the same stock-movement ledger as the rest of Inventory (full or partial receipt, no separate GRN model needed), supplier invoices (auto-populated from what was received, editable), payments against an invoice or on account, and a per-supplier ledger with a running due-amount balance.
 - **CRM & loyalty** (`/dashboard/customers`, `/dashboard/coupons`) — customer profiles (visit history, favorite items computed from past orders, birthday/anniversary, points balance, auto-computed membership tier from lifetime points earned), an append-only loyalty ledger, referral codes with an automatic bonus credited to the referrer on the referred customer's first paid order, and coupons (percent/flat, min order, max discount, usage limits, validity window). Phone lookup, coupon codes, and point redemption are wired into checkout in three places: POS, the Waiter payment-collection dialog, and self-service in the QR ordering cart (with its own public, no-login lookup/validate endpoints).
+- **Reservation management** (`/dashboard/reservations` for Owner/Manager) — a day-agenda view (date picker, bookings sorted by time, an overdue flag on unconfirmed bookings past their slot) with confirm/seat/cancel/no-show status actions and a table-assignment picker on seating (which flips the assigned table to Occupied). Staff can create a reservation directly (auto-confirmed) or a customer can self-book with no login at `/reserve/[restaurantId]` (lands as Pending, awaiting staff confirmation). Both paths reuse the CRM customer record (phone lookup/creation) so a reservation's history rolls up into the same customer profile as their orders.
 
 ## Notable simplifications (documented, not hidden)
 
@@ -62,7 +63,8 @@ To try the customer QR ordering flow, open `/dashboard/tables` as the owner, cli
 - Expiry tracking is a single date per ingredient, not batch/lot-level FIFO.
 - Points/coupon discounts are applied and locked in at checkout time (order creation for QR orders, payment confirmation for POS/Waiter) — there's no separate "preview" step showing the discount before that, and cancelling an order afterward doesn't reverse redeemed points or the referral bonus.
 - Membership tier thresholds and the points-earn-rate/redemption-value/referral-bonus amounts are configurable per restaurant in the schema, but there's no settings UI to edit them yet — same gap as the existing tax/service-charge rates.
-- Reservations, multi-branch, and AI features are not implemented yet.
+- A reservation only softly holds a table: assigning/seating sets the table to Occupied, but nothing prevents double-booking the same table/slot or blocks a walk-in from being seated at a table that has a pending reservation.
+- Multi-branch and AI features are not implemented yet.
 
 ## Useful scripts
 
