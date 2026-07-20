@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  CASHIER
+  WAITER
+  CHEF
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+  DISABLED
+}
+
+enum SpicyLevel {
+  NONE
+  MILD
+  MEDIUM
+  HOT
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  ONLINE
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  PREPARING
+  READY
+  SERVED
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderItemStatus {
+  PENDING
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  UPI
+  WALLET
+}
+
+model Restaurant {
+  id                 String   @id @default(cuid())
+  name               String
+  address            String?
+  gstNumber          String?
+  currency           String   @default("INR")
+  taxRatePercent     Float    @default(5)
+  serviceChargePercent Float  @default(0)
+  logoUrl            String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  users         User[]
+  tables        Table[]
+  categories    MenuCategory[]
+  items         MenuItem[]
+  orders        Order[]
+  invoices      Invoice[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  active       Boolean  @default(true)
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  createdAt    DateTime @default(now())
+
+  ordersCreated Order[] @relation("OrderCreatedBy")
+}
+
+model Table {
+  id           String      @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
+  name         String
+  code         String      @unique
+  capacity     Int         @default(2)
+  status       TableStatus @default(AVAILABLE)
+  createdAt    DateTime    @default(now())
+
+  orders       Order[]
+
+  @@index([restaurantId])
+}
+
+model MenuCategory {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  name         String
+  sortOrder    Int        @default(0)
+  active       Boolean    @default(true)
+
+  items        MenuItem[]
+
+  @@index([restaurantId])
+}
+
+model MenuItem {
+  id             String       @id @default(cuid())
+  restaurantId   String
+  restaurant     Restaurant   @relation(fields: [restaurantId], references: [id])
+  categoryId     String
+  category       MenuCategory @relation(fields: [categoryId], references: [id])
+  name           String
+  description    String?
+  price          Float
+  imageUrl       String?
+  isVeg          Boolean      @default(true)
+  spicyLevel     SpicyLevel   @default(NONE)
+  prepTimeMinutes Int         @default(10)
+  calories       Int?
+  isBestseller   Boolean      @default(false)
+  isAvailable    Boolean      @default(true)
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+
+  orderItems     OrderItem[]
+
+  @@index([restaurantId])
+  @@index([categoryId])
+}
+
+model Order {
+  id             String        @id @default(cuid())
+  restaurantId   String
+  restaurant     Restaurant    @relation(fields: [restaurantId], references: [id])
+  orderNumber    Int
+  tableId        String?
+  table          Table?        @relation(fields: [tableId], references: [id])
+  type           OrderType     @default(DINE_IN)
+  status         OrderStatus   @default(PENDING)
+  customerName   String?
+  notes          String?
+  subtotal       Float         @default(0)
+  taxAmount      Float         @default(0)
+  serviceCharge  Float         @default(0)
+  discount       Float         @default(0)
+  total          Float         @default(0)
+  paymentStatus  PaymentStatus @default(UNPAID)
+  paymentMethod  PaymentMethod?
+  createdById    String?
+  createdBy      User?         @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  items          OrderItem[]
+  invoice        Invoice?
+
+  @@index([restaurantId])
+  @@index([tableId])
+  @@index([status])
+}
+
+model OrderItem {
+  id          String           @id @default(cuid())
+  orderId     String
+  order       Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId  String
+  menuItem    MenuItem         @relation(fields: [menuItemId], references: [id])
+  name        String
+  price       Float
+  quantity    Int              @default(1)
+  notes       String?
+  status      OrderItemStatus  @default(PENDING)
+
+  @@index([orderId])
+}
+
+model Invoice {
+  id             String     @id @default(cuid())
+  invoiceNumber  Int
+  restaurantId   String
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id])
+  orderId        String     @unique
+  order          Order      @relation(fields: [orderId], references: [id])
+  subtotal       Float
+  taxAmount      Float
+  serviceCharge  Float
+  discount       Float
+  total          Float
+  paymentMethod  PaymentMethod?
+  createdAt      DateTime   @default(now())
+
+  @@index([restaurantId])
+}
