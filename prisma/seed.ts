@@ -466,6 +466,88 @@ async function main() {
     });
   }
 
+  const existingReservationCount = await prisma.reservation.count({ where: { restaurantId: restaurant.id } });
+  if (existingReservationCount === 0) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const customers = await prisma.customer.findMany({ where: { restaurantId: restaurant.id }, orderBy: { createdAt: "asc" } });
+    const [ananya, rahul, priya] = customers;
+
+    await prisma.reservation.createMany({
+      data: [
+        {
+          restaurantId: restaurant.id,
+          customerId: ananya?.id ?? null,
+          customerName: ananya?.name ?? "Ananya Sharma",
+          customerPhone: ananya?.phone ?? "9876500001",
+          tableId: tables[0].id,
+          partySize: 4,
+          reservationDate: today,
+          reservationTime: "12:30",
+          status: "CONFIRMED",
+        },
+        {
+          restaurantId: restaurant.id,
+          customerId: priya?.id ?? null,
+          customerName: priya?.name ?? "Priya Nair",
+          customerPhone: priya?.phone ?? "9876500003",
+          partySize: 2,
+          reservationDate: today,
+          reservationTime: "19:30",
+          status: "PENDING",
+          specialRequest: "Window seat if possible",
+        },
+        {
+          restaurantId: restaurant.id,
+          customerName: "Vikram Rao",
+          customerPhone: "9876500099",
+          tableId: tables[2].id,
+          partySize: 3,
+          reservationDate: today,
+          reservationTime: "13:00",
+          status: "SEATED",
+        },
+        {
+          restaurantId: restaurant.id,
+          customerId: rahul?.id ?? null,
+          customerName: rahul?.name ?? "Rahul Verma",
+          customerPhone: rahul?.phone ?? "9876500002",
+          tableId: tables[1].id,
+          partySize: 2,
+          reservationDate: yesterday,
+          reservationTime: "20:00",
+          status: "COMPLETED",
+        },
+        {
+          restaurantId: restaurant.id,
+          customerName: "Karan Mehta",
+          customerPhone: "9876500098",
+          partySize: 2,
+          reservationDate: yesterday,
+          reservationTime: "18:30",
+          status: "NO_SHOW",
+        },
+        {
+          restaurantId: restaurant.id,
+          customerId: priya?.id ?? null,
+          customerName: priya?.name ?? "Priya Nair",
+          customerPhone: priya?.phone ?? "9876500003",
+          tableId: tables[3].id,
+          partySize: 5,
+          reservationDate: tomorrow,
+          reservationTime: "20:00",
+          status: "CONFIRMED",
+          specialRequest: "Birthday cake for 5pm",
+        },
+      ],
+    });
+  }
+
   console.log("Seed complete.");
   console.log("Demo login password for all accounts: demo1234");
   console.log(

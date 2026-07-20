@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   Contact,
   Tag,
+  CalendarCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -23,6 +24,7 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/menu", label: "Menu", icon: UtensilsCrossed },
   { href: "/dashboard/tables", label: "Tables", icon: Table2 },
+  { href: "/dashboard/reservations", label: "Reservations", icon: CalendarCheck },
   { href: "/dashboard/orders", label: "Orders", icon: ClipboardList },
   { href: "/dashboard/customers", label: "Customers", icon: Contact },
   { href: "/dashboard/coupons", label: "Coupons", icon: Tag },
