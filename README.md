@@ -2,7 +2,7 @@
 
 An all-in-one restaurant business management system — QR ordering, table management, a kitchen display system, POS billing, and an owner/manager dashboard, built as a single Next.js app.
 
-This is a **Phase 1 MVP**: authentication & roles, menu management, QR ordering, kitchen display, POS, billing, table management, and live dashboard analytics. It's the foundation for the larger vision (inventory, CRM, reservations, multi-branch, SaaS billing, AI features) described in the original spec — those are not yet built.
+This is a **Phase 1 MVP** (auth & roles, menu management, QR ordering, kitchen display, POS, billing, table management, live dashboard analytics) plus an **inventory & recipe costing** module. It's the foundation for the larger vision (CRM, reservations, multi-branch, SaaS billing, AI features) described in the original spec — those are not yet built.
 
 ## Stack
 
@@ -32,6 +32,7 @@ Visit `http://localhost:3000/login`. Demo accounts (password `demo1234` for all)
 | Cashier | cashier@restaurantos.dev  | /pos       |
 | Waiter  | waiter@restaurantos.dev   | /waiter    |
 | Chef    | chef@restaurantos.dev     | /kitchen   |
+| Inventory Manager | inventory@restaurantos.dev | /inventory |
 
 To try the customer QR ordering flow, open `/dashboard/tables` as the owner, click the QR icon on any table, and open the printed link (`/order/<table-code>`) — no login required.
 
@@ -47,6 +48,7 @@ To try the customer QR ordering flow, open `/dashboard/tables` as the owner, cli
 - **POS** (`/pos`) — quick-sale item grid for walk-ins/takeaway plus an "open bills" tab for existing dine-in orders, discount/tax/service-charge calculation, payment method selection, printable receipt.
 - **Staff** (`/dashboard/staff`) — add staff accounts per role, activate/deactivate.
 - **Orders** (`/dashboard/orders`) — recent order log across dine-in/takeaway/online.
+- **Inventory & recipe costing** (`/dashboard/inventory` for Owner/Manager, `/inventory` for the Inventory Manager role) — raw material stock levels, low-stock/out-of-stock/expiring alerts, purchase & waste logging with a full stock-movement ledger per ingredient, and a recipe builder on each menu item (`/dashboard/menu`) that computes food cost and profit margin live. Stock is auto-deducted the moment an order's status moves to **Preparing** — whether that's the kitchen accepting it or a waiter appending items to an order already in progress.
 
 ## Notable simplifications (documented, not hidden)
 
@@ -54,7 +56,8 @@ To try the customer QR ordering flow, open `/dashboard/tables` as the owner, cli
 - No payment gateway integration — "Pay at Counter" only; the POS/waiter "collect payment" flow marks an order paid and generates an invoice record.
 - "Real-time" updates are short-interval polling (TanStack Query `refetchInterval`), not WebSockets.
 - Single restaurant/tenant — multi-branch and the SaaS super-admin layer from the full spec are out of scope for this pass.
-- Inventory, recipe costing, purchasing, CRM/loyalty, reservations, and AI features are not implemented yet.
+- Purchase Orders / GRN / supplier ledger are not implemented — "Record Purchase" in Inventory is a stock-in action with a cost, not a full PO workflow. Expiry tracking is a single date per ingredient, not batch/lot-level FIFO.
+- CRM/loyalty, reservations, multi-branch, and AI features are not implemented yet.
 
 ## Useful scripts
 

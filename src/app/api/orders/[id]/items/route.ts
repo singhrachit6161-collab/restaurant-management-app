@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-auth";
 import { computeTotals } from "@/lib/pricing";
+import { deductStockForOrder } from "@/lib/inventory";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { session, error } = await requireSession(["OWNER", "MANAGER", "WAITER", "CASHIER"]);
@@ -65,6 +66,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     },
     include: { items: true, table: true },
   });
+
+  if (updated.status === "PREPARING") {
+    await deductStockForOrder(updated.id, updated.orderNumber, session.user.id);
+  }
 
   return NextResponse.json(updated);
 }

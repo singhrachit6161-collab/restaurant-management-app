@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-auth";
 import { computeTotals } from "@/lib/pricing";
+import { deductStockForOrder } from "@/lib/inventory";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { session, error } = await requireSession();
@@ -62,6 +63,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     data,
     include: { items: true, table: true },
   });
+
+  if (body.status === "PREPARING") {
+    await deductStockForOrder(order.id, order.orderNumber, session.user.id);
+  }
 
   if (body.paymentStatus === "PAID" && !existing.invoice) {
     const invoiceCount = await prisma.invoice.count({ where: { restaurantId: existing.restaurantId } });

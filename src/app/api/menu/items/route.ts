@@ -8,10 +8,17 @@ export async function GET() {
 
   const items = await prisma.menuItem.findMany({
     where: { restaurantId: session.user.restaurantId },
-    include: { category: true },
+    include: { category: true, recipe: { include: { ingredient: true } } },
     orderBy: [{ categoryId: "asc" }, { sortOrder: "asc" }],
   });
-  return NextResponse.json(items);
+
+  const withCosting = items.map(({ recipe, ...item }) => {
+    const foodCost = recipe.reduce((sum, r) => sum + r.quantity * r.ingredient.costPerUnit, 0);
+    const margin = item.price > 0 && recipe.length > 0 ? ((item.price - foodCost) / item.price) * 100 : null;
+    return { ...item, foodCost: recipe.length > 0 ? foodCost : null, margin };
+  });
+
+  return NextResponse.json(withCosting);
 }
 
 export async function POST(req: Request) {

@@ -7,6 +7,7 @@ const ROLE_HOME: Record<string, string> = {
   CASHIER: "/pos",
   WAITER: "/waiter",
   CHEF: "/kitchen",
+  INVENTORY_MANAGER: "/inventory",
 };
 
 export default async function Home() {

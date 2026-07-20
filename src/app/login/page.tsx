@@ -16,6 +16,7 @@ const DEMO_ACCOUNTS = [
   { role: "Cashier", email: "cashier@restaurantos.dev" },
   { role: "Waiter", email: "waiter@restaurantos.dev" },
   { role: "Chef", email: "chef@restaurantos.dev" },
+  { role: "Inventory", email: "inventory@restaurantos.dev" },
 ];
 
 function LoginForm() {
