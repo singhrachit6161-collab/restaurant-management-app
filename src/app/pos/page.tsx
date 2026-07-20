@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn, formatCurrency } from "@/lib/utils";
+import { LoyaltyCheckoutFields, emptyLoyaltyCheckoutValue, type LoyaltyCheckoutValue } from "@/components/loyalty-checkout-fields";
 
 interface MenuItem {
   id: string;
@@ -71,6 +72,7 @@ export default function PosPage() {
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [selectedOpenOrder, setSelectedOpenOrder] = useState<OpenOrder | null>(null);
   const [receipt, setReceipt] = useState<{ order: OpenOrder; invoiceNumber?: number } | null>(null);
+  const [loyalty, setLoyalty] = useState<LoyaltyCheckoutValue>(emptyLoyaltyCheckoutValue);
 
   const { data: categories } = useQuery<MenuCategory[]>({
     queryKey: ["categories"],
@@ -143,7 +145,14 @@ export default function PosPage() {
       const res2 = await fetch(`/api/orders/${order.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentMethod, paymentStatus: "PAID" }),
+        body: JSON.stringify({
+          paymentMethod,
+          paymentStatus: "PAID",
+          customerPhone: loyalty.customerPhone || undefined,
+          customerName: loyalty.customerName || undefined,
+          couponCode: loyalty.couponCode || undefined,
+          redeemPoints: loyalty.redeemPoints ? Number(loyalty.redeemPoints) : undefined,
+        }),
       });
       if (!res2.ok) throw new Error((await res2.json()).error);
       return res2.json();
@@ -151,6 +160,7 @@ export default function PosPage() {
     onSuccess: (order) => {
       setCart({});
       setDiscount("0");
+      setLoyalty(emptyLoyaltyCheckoutValue);
       setReceipt({ order, invoiceNumber: order.invoice?.invoiceNumber });
       toast.success("Payment received");
     },
@@ -163,7 +173,15 @@ export default function PosPage() {
       const res = await fetch(`/api/orders/${selectedOpenOrder.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ discount: discountNum, paymentMethod, paymentStatus: "PAID" }),
+        body: JSON.stringify({
+          discount: discountNum,
+          paymentMethod,
+          paymentStatus: "PAID",
+          customerPhone: loyalty.customerPhone || undefined,
+          customerName: loyalty.customerName || undefined,
+          couponCode: loyalty.couponCode || undefined,
+          redeemPoints: loyalty.redeemPoints ? Number(loyalty.redeemPoints) : undefined,
+        }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       return res.json();
@@ -172,6 +190,7 @@ export default function PosPage() {
       queryClient.invalidateQueries({ queryKey: ["open-orders"] });
       setSelectedOpenOrder(null);
       setDiscount("0");
+      setLoyalty(emptyLoyaltyCheckoutValue);
       setReceipt({ order, invoiceNumber: order.invoice?.invoiceNumber });
       toast.success("Payment received");
     },
@@ -264,6 +283,8 @@ export default function PosPage() {
                   <Input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} />
                 </div>
 
+                <LoyaltyCheckoutFields value={loyalty} onChange={setLoyalty} />
+
                 <div className="space-y-1 border-t pt-2 text-sm">
                   <div className="flex justify-between text-muted-foreground">
                     <span>Subtotal</span>
@@ -281,6 +302,9 @@ export default function PosPage() {
                     <span>Total</span>
                     <span>{formatCurrency(total)}</span>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Coupon/points discounts are applied when payment is confirmed.
+                  </p>
                 </div>
 
                 <Select value={paymentMethod} onValueChange={setPaymentMethod}>
@@ -354,6 +378,7 @@ export default function PosPage() {
                 <label className="text-xs font-medium text-muted-foreground">Discount</label>
                 <Input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} />
               </div>
+              <LoyaltyCheckoutFields value={loyalty} onChange={setLoyalty} />
               <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                 <SelectTrigger>
                   <SelectValue />

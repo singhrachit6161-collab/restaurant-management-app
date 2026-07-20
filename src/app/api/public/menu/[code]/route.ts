@@ -20,7 +20,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ code: s
   });
 
   return NextResponse.json({
-    restaurant: { name: restaurant?.name, currency: restaurant?.currency },
+    restaurant: {
+      name: restaurant?.name,
+      currency: restaurant?.currency,
+      loyaltyRedemptionValue: restaurant?.loyaltyRedemptionValue,
+    },
     table: { id: table.id, name: table.name },
     categories,
   });

@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn, formatCurrency } from "@/lib/utils";
+import { LoyaltyCheckoutFields, emptyLoyaltyCheckoutValue, type LoyaltyCheckoutValue } from "@/components/loyalty-checkout-fields";
 
 type TableStatus = "AVAILABLE" | "OCCUPIED" | "RESERVED" | "CLEANING" | "DISABLED";
 
@@ -90,6 +91,7 @@ export default function WaiterPage() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [discount, setDiscount] = useState("0");
+  const [loyalty, setLoyalty] = useState<LoyaltyCheckoutValue>(emptyLoyaltyCheckoutValue);
 
   const { data: tables } = useQuery<RestaurantTable[]>({
     queryKey: ["tables"],
@@ -159,18 +161,29 @@ export default function WaiterPage() {
   const collectPayment = useMutation({
     mutationFn: async () => {
       if (!activeOrder) return;
-      await fetch(`/api/orders/${activeOrder.id}`, {
+      const res = await fetch(`/api/orders/${activeOrder.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ discount: Number(discount), paymentMethod, paymentStatus: "PAID" }),
+        body: JSON.stringify({
+          discount: Number(discount),
+          paymentMethod,
+          paymentStatus: "PAID",
+          customerPhone: loyalty.customerPhone || undefined,
+          customerName: loyalty.customerName || undefined,
+          couponCode: loyalty.couponCode || undefined,
+          redeemPoints: loyalty.redeemPoints ? Number(loyalty.redeemPoints) : undefined,
+        }),
       });
+      if (!res.ok) throw new Error((await res.json()).error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tables"] });
       setCheckoutOpen(false);
       setSelectedTableId(null);
+      setLoyalty(emptyLoyaltyCheckoutValue);
       toast.success("Payment collected, bill closed");
     },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const transferTable = useMutation({
@@ -373,6 +386,7 @@ export default function WaiterPage() {
               <label className="text-sm font-medium">Discount</label>
               <Input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} />
             </div>
+            <LoyaltyCheckoutFields value={loyalty} onChange={setLoyalty} />
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Payment method</label>
               <Select value={paymentMethod} onValueChange={setPaymentMethod}>

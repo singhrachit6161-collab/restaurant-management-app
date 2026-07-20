@@ -12,6 +12,8 @@ import {
   Warehouse,
   Truck,
   ShoppingCart,
+  Contact,
+  Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -22,6 +24,8 @@ const NAV = [
   { href: "/dashboard/menu", label: "Menu", icon: UtensilsCrossed },
   { href: "/dashboard/tables", label: "Tables", icon: Table2 },
   { href: "/dashboard/orders", label: "Orders", icon: ClipboardList },
+  { href: "/dashboard/customers", label: "Customers", icon: Contact },
+  { href: "/dashboard/coupons", label: "Coupons", icon: Tag },
   { href: "/dashboard/inventory", label: "Inventory", icon: Warehouse },
   { href: "/dashboard/purchase-orders", label: "Purchase Orders", icon: ShoppingCart },
   { href: "/dashboard/suppliers", label: "Suppliers", icon: Truck },
