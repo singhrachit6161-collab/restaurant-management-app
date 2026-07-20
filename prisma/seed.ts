@@ -1,4 +1,4 @@
-import { PrismaClient, Role, SpicyLevel } from "@prisma/client";
+import { PrismaClient, Role, SpicyLevel, IngredientUnit } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 
@@ -31,6 +31,7 @@ async function main() {
     { email: "cashier@restaurantos.dev", name: "Kabir Cashier", role: Role.CASHIER },
     { email: "waiter@restaurantos.dev", name: "Priya Waiter", role: Role.WAITER },
     { email: "chef@restaurantos.dev", name: "Rohan Chef", role: Role.CHEF },
+    { email: "inventory@restaurantos.dev", name: "Sana Inventory", role: Role.INVENTORY_MANAGER },
   ];
 
   for (const u of users) {
@@ -115,6 +116,140 @@ async function main() {
         isBestseller: item.isBestseller ?? false,
         sortOrder: i,
       },
+    });
+  }
+
+  const soon = new Date();
+  soon.setDate(soon.getDate() + 2);
+
+  const ingredientsData: {
+    name: string;
+    unit: IngredientUnit;
+    costPerUnit: number;
+    currentStock: number;
+    lowStockThreshold: number;
+    supplierName: string;
+    expiryDate?: Date;
+  }[] = [
+    { name: "Basmati Rice", unit: IngredientUnit.KG, costPerUnit: 120, currentStock: 20, lowStockThreshold: 4, supplierName: "Krishna Grains" },
+    { name: "Chicken", unit: IngredientUnit.KG, costPerUnit: 220, currentStock: 15, lowStockThreshold: 3, supplierName: "Farm Fresh Poultry" },
+    { name: "Paneer", unit: IngredientUnit.KG, costPerUnit: 320, currentStock: 1.5, lowStockThreshold: 2, supplierName: "Amul Dairy" },
+    { name: "Tomato", unit: IngredientUnit.KG, costPerUnit: 40, currentStock: 10, lowStockThreshold: 2, supplierName: "Local Mandi" },
+    { name: "Onion", unit: IngredientUnit.KG, costPerUnit: 30, currentStock: 12, lowStockThreshold: 2, supplierName: "Local Mandi" },
+    { name: "Cooking Oil", unit: IngredientUnit.L, costPerUnit: 150, currentStock: 10, lowStockThreshold: 2, supplierName: "Sunrise Oils" },
+    { name: "Butter", unit: IngredientUnit.KG, costPerUnit: 450, currentStock: 3, lowStockThreshold: 1, supplierName: "Amul Dairy" },
+    { name: "Fresh Cream", unit: IngredientUnit.L, costPerUnit: 280, currentStock: 4, lowStockThreshold: 1, supplierName: "Amul Dairy" },
+    { name: "Wheat Flour", unit: IngredientUnit.KG, costPerUnit: 45, currentStock: 15, lowStockThreshold: 3, supplierName: "Krishna Grains" },
+    { name: "Sugar", unit: IngredientUnit.KG, costPerUnit: 45, currentStock: 8, lowStockThreshold: 2, supplierName: "Krishna Grains" },
+    { name: "Lime", unit: IngredientUnit.PCS, costPerUnit: 8, currentStock: 60, lowStockThreshold: 15, supplierName: "Local Mandi" },
+    { name: "Buttermilk", unit: IngredientUnit.L, costPerUnit: 60, currentStock: 5, lowStockThreshold: 1, supplierName: "Amul Dairy" },
+    { name: "Spice Mix", unit: IngredientUnit.KG, costPerUnit: 400, currentStock: 2, lowStockThreshold: 0.5, supplierName: "Spice Bazaar" },
+    { name: "Cabbage", unit: IngredientUnit.KG, costPerUnit: 35, currentStock: 5, lowStockThreshold: 1, supplierName: "Local Mandi" },
+    { name: "Spring Roll Wrapper", unit: IngredientUnit.PCS, costPerUnit: 5, currentStock: 100, lowStockThreshold: 20, supplierName: "Spice Bazaar" },
+    { name: "Khoya", unit: IngredientUnit.KG, costPerUnit: 280, currentStock: 2, lowStockThreshold: 0.5, supplierName: "Amul Dairy", expiryDate: soon },
+    { name: "Dal", unit: IngredientUnit.KG, costPerUnit: 90, currentStock: 6, lowStockThreshold: 1.5, supplierName: "Krishna Grains" },
+  ];
+
+  const ingredientIds: Record<string, string> = {};
+  for (const ing of ingredientsData) {
+    const existing = await prisma.ingredient.findFirst({
+      where: { restaurantId: restaurant.id, name: ing.name },
+    });
+    if (existing) {
+      ingredientIds[ing.name] = existing.id;
+      continue;
+    }
+    const created = await prisma.ingredient.create({
+      data: { ...ing, restaurantId: restaurant.id },
+    });
+    ingredientIds[ing.name] = created.id;
+    if (created.currentStock > 0) {
+      await prisma.stockMovement.create({
+        data: {
+          ingredientId: created.id,
+          type: "ADJUSTMENT",
+          quantity: created.currentStock,
+          note: "Initial stock",
+        },
+      });
+    }
+  }
+
+  const recipesData: Record<string, { ingredient: string; quantity: number }[]> = {
+    "Paneer Tikka": [
+      { ingredient: "Paneer", quantity: 0.15 },
+      { ingredient: "Onion", quantity: 0.02 },
+      { ingredient: "Spice Mix", quantity: 0.01 },
+    ],
+    "Chicken 65": [
+      { ingredient: "Chicken", quantity: 0.2 },
+      { ingredient: "Cooking Oil", quantity: 0.03 },
+      { ingredient: "Spice Mix", quantity: 0.015 },
+    ],
+    "Veg Spring Rolls": [
+      { ingredient: "Cabbage", quantity: 0.1 },
+      { ingredient: "Spring Roll Wrapper", quantity: 4 },
+      { ingredient: "Cooking Oil", quantity: 0.02 },
+    ],
+    "Butter Chicken": [
+      { ingredient: "Chicken", quantity: 0.25 },
+      { ingredient: "Butter", quantity: 0.03 },
+      { ingredient: "Fresh Cream", quantity: 0.05 },
+      { ingredient: "Tomato", quantity: 0.1 },
+      { ingredient: "Onion", quantity: 0.05 },
+    ],
+    "Paneer Butter Masala": [
+      { ingredient: "Paneer", quantity: 0.15 },
+      { ingredient: "Butter", quantity: 0.025 },
+      { ingredient: "Fresh Cream", quantity: 0.04 },
+      { ingredient: "Tomato", quantity: 0.12 },
+    ],
+    "Dal Makhani": [
+      { ingredient: "Dal", quantity: 0.12 },
+      { ingredient: "Butter", quantity: 0.02 },
+      { ingredient: "Fresh Cream", quantity: 0.03 },
+    ],
+    "Hyderabadi Biryani": [
+      { ingredient: "Basmati Rice", quantity: 0.2 },
+      { ingredient: "Chicken", quantity: 0.18 },
+      { ingredient: "Onion", quantity: 0.05 },
+      { ingredient: "Spice Mix", quantity: 0.02 },
+    ],
+    "Butter Naan": [
+      { ingredient: "Wheat Flour", quantity: 0.08 },
+      { ingredient: "Butter", quantity: 0.01 },
+    ],
+    "Jeera Rice": [
+      { ingredient: "Basmati Rice", quantity: 0.15 },
+      { ingredient: "Cooking Oil", quantity: 0.01 },
+    ],
+    "Masala Chaas": [
+      { ingredient: "Buttermilk", quantity: 0.2 },
+      { ingredient: "Spice Mix", quantity: 0.005 },
+    ],
+    "Fresh Lime Soda": [
+      { ingredient: "Lime", quantity: 1 },
+      { ingredient: "Sugar", quantity: 0.02 },
+    ],
+    "Gulab Jamun": [
+      { ingredient: "Khoya", quantity: 0.06 },
+      { ingredient: "Sugar", quantity: 0.03 },
+    ],
+  };
+
+  for (const [itemName, lines] of Object.entries(recipesData)) {
+    const menuItem = await prisma.menuItem.findFirst({
+      where: { restaurantId: restaurant.id, name: itemName },
+    });
+    if (!menuItem) continue;
+    const existingRecipe = await prisma.recipeIngredient.count({ where: { menuItemId: menuItem.id } });
+    if (existingRecipe > 0) continue;
+    await prisma.recipeIngredient.createMany({
+      data: lines.map((l) => ({
+        menuItemId: menuItem.id,
+        ingredientId: ingredientIds[l.ingredient],
+        quantity: l.quantity,
+      })),
     });
   }
 

@@ -10,7 +10,7 @@ export async function GET() {
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
-  const [todayOrders, tables, allTimeItems] = await Promise.all([
+  const [todayOrders, tables, allTimeItems, ingredients] = await Promise.all([
     prisma.order.findMany({
       where: { restaurantId, createdAt: { gte: startOfDay } },
       include: { items: true },
@@ -19,6 +19,7 @@ export async function GET() {
     prisma.orderItem.findMany({
       where: { order: { restaurantId, createdAt: { gte: startOfDay }, status: { not: "CANCELLED" } } },
     }),
+    prisma.ingredient.findMany({ where: { restaurantId } }),
   ]);
 
   const nonCancelled = todayOrders.filter((o) => o.status !== "CANCELLED");
@@ -57,6 +58,17 @@ export async function GET() {
   const peakHourIdx = hourlyOrders.indexOf(Math.max(...hourlyOrders));
   const peakHour = hourlyOrders[peakHourIdx] > 0 ? `${peakHourIdx}:00 - ${peakHourIdx + 1}:00` : "N/A";
 
+  const now = Date.now();
+  const EXPIRING_SOON_MS = 3 * 86400000;
+  let lowStockCount = 0;
+  let outOfStockCount = 0;
+  let expiringCount = 0;
+  for (const ing of ingredients) {
+    if (ing.currentStock <= 0) outOfStockCount += 1;
+    else if (ing.currentStock <= ing.lowStockThreshold) lowStockCount += 1;
+    if (ing.expiryDate && new Date(ing.expiryDate).getTime() - now < EXPIRING_SOON_MS) expiringCount += 1;
+  }
+
   return NextResponse.json({
     revenue,
     ordersCount: todayOrders.length,
@@ -71,5 +83,8 @@ export async function GET() {
     topItems,
     peakHour,
     revenueGraph,
+    lowStockCount,
+    outOfStockCount,
+    expiringCount,
   });
 }

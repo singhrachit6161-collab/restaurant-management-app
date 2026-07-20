@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Flame, Leaf, Star, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, Flame, Leaf, Star, Clock, X, ChefHat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,6 +51,8 @@ interface MenuItem {
   calories: number | null;
   isBestseller: boolean;
   isAvailable: boolean;
+  foodCost: number | null;
+  margin: number | null;
 }
 
 type SpicyLevel = "NONE" | "MILD" | "MEDIUM" | "HOT";
@@ -67,6 +69,24 @@ interface ItemForm {
   calories: string;
   isBestseller: boolean;
   isAvailable: boolean;
+}
+
+interface Ingredient {
+  id: string;
+  name: string;
+  unit: string;
+  costPerUnit: number;
+}
+
+interface RecipeLine {
+  ingredientId: string;
+  quantity: string;
+}
+
+interface RecipeResponse {
+  recipe: { ingredientId: string; quantity: number }[];
+  foodCost: number;
+  margin: number | null;
 }
 
 const emptyItemForm: ItemForm = {
@@ -98,6 +118,60 @@ export default function MenuPage() {
   const { data: items } = useQuery<MenuItem[]>({
     queryKey: ["items"],
     queryFn: async () => (await fetch("/api/menu/items")).json(),
+  });
+
+  const { data: ingredients } = useQuery<Ingredient[]>({
+    queryKey: ["ingredients"],
+    queryFn: async () => (await fetch("/api/inventory/ingredients")).json(),
+  });
+
+  const [recipeLines, setRecipeLines] = useState<RecipeLine[]>([]);
+  const [recipeInitializedId, setRecipeInitializedId] = useState<string | null>(null);
+
+  const { data: recipeData } = useQuery<RecipeResponse>({
+    queryKey: ["item-recipe", form.id],
+    queryFn: async () => (await fetch(`/api/menu/items/${form.id}/recipe`)).json(),
+    enabled: itemDialogOpen && !!form.id,
+  });
+
+  if (recipeData && form.id && recipeInitializedId !== form.id) {
+    setRecipeLines(recipeData.recipe.map((r) => ({ ingredientId: r.ingredientId, quantity: String(r.quantity) })));
+    setRecipeInitializedId(form.id);
+  } else if (!form.id && recipeInitializedId !== null) {
+    setRecipeLines([]);
+    setRecipeInitializedId(null);
+  }
+
+  const ingredientMap = useMemo(() => new Map((ingredients ?? []).map((i) => [i.id, i])), [ingredients]);
+
+  const livePreview = useMemo(() => {
+    const cost = recipeLines.reduce((sum, line) => {
+      const ing = ingredientMap.get(line.ingredientId);
+      const qty = Number(line.quantity) || 0;
+      return sum + (ing ? ing.costPerUnit * qty : 0);
+    }, 0);
+    const price = Number(form.price) || 0;
+    const margin = price > 0 ? ((price - cost) / price) * 100 : null;
+    return { cost, margin };
+  }, [recipeLines, ingredientMap, form.price]);
+
+  const saveRecipe = useMutation({
+    mutationFn: async () => {
+      const lines = recipeLines.filter((l) => l.ingredientId && Number(l.quantity) > 0);
+      const res = await fetch(`/api/menu/items/${form.id}/recipe`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ingredients: lines.map((l) => ({ ingredientId: l.ingredientId, quantity: Number(l.quantity) })),
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["item-recipe", form.id] });
+      toast.success("Recipe saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const grouped = useMemo(() => {
@@ -264,6 +338,12 @@ export default function MenuPage() {
                           <Clock className="h-3 w-3" /> {item.prepTimeMinutes}m
                         </span>
                         {item.calories && <span>{item.calories} kcal</span>}
+                        {item.foodCost != null && (
+                          <span>
+                            Food cost {formatCurrency(item.foodCost)}
+                            {item.margin != null && ` · ${item.margin.toFixed(0)}% margin`}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -398,6 +478,87 @@ export default function MenuPage() {
                 Available
               </label>
             </div>
+
+            {form.id && (
+              <div className="space-y-3 rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <p className="flex items-center gap-1.5 text-sm font-medium">
+                    <ChefHat className="h-4 w-4" /> Recipe & Food Cost
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRecipeLines([...recipeLines, { ingredientId: "", quantity: "" }])}
+                    disabled={!ingredients?.length}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Ingredient
+                  </Button>
+                </div>
+
+                {!ingredients?.length && (
+                  <p className="text-xs text-muted-foreground">
+                    Add ingredients under Inventory before building a recipe.
+                  </p>
+                )}
+
+                {recipeLines.map((line, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Select
+                      value={line.ingredientId}
+                      onValueChange={(v) => {
+                        const next = [...recipeLines];
+                        next[idx] = { ...next[idx], ingredientId: v };
+                        setRecipeLines(next);
+                      }}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Ingredient" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ingredients?.map((ing) => (
+                          <SelectItem key={ing.id} value={ing.id}>
+                            {ing.name} ({ing.unit.toLowerCase()})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      className="w-24"
+                      type="number"
+                      placeholder="Qty"
+                      value={line.quantity}
+                      onChange={(e) => {
+                        const next = [...recipeLines];
+                        next[idx] = { ...next[idx], quantity: e.target.value };
+                        setRecipeLines(next);
+                      }}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setRecipeLines(recipeLines.filter((_, i) => i !== idx))}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+
+                <div className="flex items-center justify-between border-t pt-2 text-sm">
+                  <span className="text-muted-foreground">
+                    Food cost: <span className="font-medium text-foreground">{formatCurrency(livePreview.cost)}</span>
+                    {livePreview.margin != null && (
+                      <>
+                        {" "}
+                        · Margin: <span className="font-medium text-foreground">{livePreview.margin.toFixed(0)}%</span>
+                      </>
+                    )}
+                  </span>
+                  <Button size="sm" variant="secondary" onClick={() => saveRecipe.mutate()} disabled={saveRecipe.isPending}>
+                    Save Recipe
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button

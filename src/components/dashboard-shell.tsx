@@ -9,6 +9,7 @@ import {
   ChefHat,
   Users2,
   ClipboardList,
+  Warehouse,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -19,6 +20,7 @@ const NAV = [
   { href: "/dashboard/menu", label: "Menu", icon: UtensilsCrossed },
   { href: "/dashboard/tables", label: "Tables", icon: Table2 },
   { href: "/dashboard/orders", label: "Orders", icon: ClipboardList },
+  { href: "/dashboard/inventory", label: "Inventory", icon: Warehouse },
   { href: "/dashboard/staff", label: "Staff", icon: Users2 },
 ];
 
@@ -26,6 +28,7 @@ const OPERATIONS = [
   { href: "/kitchen", label: "Kitchen Display" },
   { href: "/waiter", label: "Waiter Panel" },
   { href: "/pos", label: "POS Billing" },
+  { href: "/inventory", label: "Inventory (Manager view)" },
 ];
 
 export function DashboardShell({

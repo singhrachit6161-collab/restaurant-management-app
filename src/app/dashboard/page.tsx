@@ -20,6 +20,9 @@ import {
   Smartphone,
   TrendingUp,
   Clock,
+  AlertTriangle,
+  PackageX,
+  CalendarClock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/stat-card";
@@ -39,6 +42,9 @@ interface DashboardStats {
   topItems: { name: string; qty: number }[];
   peakHour: string;
   revenueGraph: { hour: string; revenue: number; orders: number }[];
+  lowStockCount: number;
+  outOfStockCount: number;
+  expiringCount: number;
 }
 
 export default function DashboardPage() {
@@ -99,6 +105,24 @@ export default function DashboardPage() {
           icon={TrendingUp}
         />
         <StatCard label="Peak Hours" value={data?.peakHour ?? "…"} icon={Clock} />
+        <StatCard
+          label="Low Stock Ingredients"
+          value={data?.lowStockCount ?? "…"}
+          icon={AlertTriangle}
+          accent={data && data.lowStockCount > 0 ? "warning" : "default"}
+        />
+        <StatCard
+          label="Out of Stock"
+          value={data?.outOfStockCount ?? "…"}
+          icon={PackageX}
+          accent={data && data.outOfStockCount > 0 ? "destructive" : "default"}
+        />
+        <StatCard
+          label="Expiring / Expired"
+          value={data?.expiringCount ?? "…"}
+          icon={CalendarClock}
+          accent={data && data.expiringCount > 0 ? "warning" : "default"}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
