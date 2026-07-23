@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-auth";
+import { assertCanAddBranch } from "@/lib/billing";
 
 export async function GET() {
   const { session, error } = await requireSession(["OWNER"]);
@@ -19,6 +20,9 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   if (!body.name) return NextResponse.json({ error: "name is required" }, { status: 400 });
+
+  const canAdd = await assertCanAddBranch(session.user.accountId);
+  if (!canAdd.ok) return NextResponse.json({ error: canAdd.error }, { status: 403 });
 
   const branch = await prisma.restaurant.create({
     data: {

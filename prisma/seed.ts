@@ -568,6 +568,52 @@ async function main() {
     });
   }
 
+  const plansData = [
+    { name: "Starter", pricePerMonth: 2499, maxBranches: 1, maxStaff: 5, sortOrder: 0 },
+    { name: "Growth", pricePerMonth: 6999, maxBranches: 3, maxStaff: 20, sortOrder: 1 },
+    { name: "Enterprise", pricePerMonth: 14999, maxBranches: null, maxStaff: null, sortOrder: 2 },
+  ];
+
+  const planIds: Record<string, string> = {};
+  for (const p of plansData) {
+    const plan = await prisma.plan.upsert({ where: { name: p.name }, update: {}, create: p });
+    planIds[p.name] = plan.id;
+  }
+
+  const existingSubscription = await prisma.subscription.findUnique({ where: { accountId: account.id } });
+  if (!existingSubscription) {
+    const periodStart1 = new Date();
+    periodStart1.setDate(periodStart1.getDate() - 60);
+    const periodEnd1 = new Date(periodStart1);
+    periodEnd1.setDate(periodEnd1.getDate() + 30);
+
+    const periodStart2 = new Date(periodEnd1);
+    const periodEnd2 = new Date(periodStart2);
+    periodEnd2.setDate(periodEnd2.getDate() + 30);
+
+    const periodStart3 = new Date(periodEnd2);
+    const periodEnd3 = new Date(periodStart3);
+    periodEnd3.setDate(periodEnd3.getDate() + 30);
+
+    const subscription = await prisma.subscription.create({
+      data: {
+        accountId: account.id,
+        planId: planIds["Growth"],
+        status: "ACTIVE",
+        currentPeriodStart: periodStart3,
+        currentPeriodEnd: periodEnd3,
+      },
+    });
+
+    await prisma.billingInvoice.createMany({
+      data: [
+        { accountId: account.id, subscriptionId: subscription.id, planName: "Growth", amount: 6999, status: "PAID", periodStart: periodStart1, periodEnd: periodEnd1, createdAt: periodStart1 },
+        { accountId: account.id, subscriptionId: subscription.id, planName: "Growth", amount: 6999, status: "PAID", periodStart: periodStart2, periodEnd: periodEnd2, createdAt: periodStart2 },
+        { accountId: account.id, subscriptionId: subscription.id, planName: "Growth", amount: 6999, status: "PAID", periodStart: periodStart3, periodEnd: periodEnd3, createdAt: periodStart3 },
+      ],
+    });
+  }
+
   console.log("Seed complete.");
   console.log("Demo login password for all accounts: demo1234");
   console.log(
