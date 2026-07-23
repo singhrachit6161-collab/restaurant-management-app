@@ -13,7 +13,7 @@ export async function GET(req: Request) {
 
   const customers = await prisma.customer.findMany({
     where: {
-      restaurantId: session.user.restaurantId,
+      accountId: session.user.accountId,
       ...(q
         ? { OR: [{ name: { contains: q } }, { phone: { contains: q } }] }
         : {}),
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   }
 
   const existing = await prisma.customer.findUnique({
-    where: { restaurantId_phone: { restaurantId: session.user.restaurantId, phone: body.phone } },
+    where: { accountId_phone: { accountId: session.user.accountId, phone: body.phone } },
   });
   if (existing) return NextResponse.json({ error: "A customer with this phone number already exists" }, { status: 400 });
 

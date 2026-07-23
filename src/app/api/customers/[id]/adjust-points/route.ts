@@ -10,7 +10,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
 
   const customer = await prisma.customer.findUnique({ where: { id } });
-  if (!customer || customer.restaurantId !== session.user.restaurantId) {
+  if (!customer || customer.accountId !== session.user.accountId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

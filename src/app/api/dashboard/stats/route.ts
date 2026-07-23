@@ -2,24 +2,30 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-auth";
 
-export async function GET() {
+export async function GET(req: Request) {
   const { session, error } = await requireSession(["OWNER", "MANAGER"]);
   if (error) return error;
 
-  const restaurantId = session.user.restaurantId;
+  const { searchParams } = new URL(req.url);
+  const allBranches = searchParams.get("scope") === "all" && session.user.role === "OWNER";
+
+  const restaurantWhere = allBranches
+    ? { accountId: session.user.accountId }
+    : { id: session.user.restaurantId };
+
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
   const [todayOrders, tables, allTimeItems, ingredients] = await Promise.all([
     prisma.order.findMany({
-      where: { restaurantId, createdAt: { gte: startOfDay } },
+      where: { restaurant: restaurantWhere, createdAt: { gte: startOfDay } },
       include: { items: true },
     }),
-    prisma.table.findMany({ where: { restaurantId } }),
+    prisma.table.findMany({ where: { restaurant: restaurantWhere } }),
     prisma.orderItem.findMany({
-      where: { order: { restaurantId, createdAt: { gte: startOfDay }, status: { not: "CANCELLED" } } },
+      where: { order: { restaurant: restaurantWhere, createdAt: { gte: startOfDay }, status: { not: "CANCELLED" } } },
     }),
-    prisma.ingredient.findMany({ where: { restaurantId } }),
+    prisma.ingredient.findMany({ where: { restaurant: restaurantWhere } }),
   ]);
 
   const nonCancelled = todayOrders.filter((o) => o.status !== "CANCELLED");
@@ -70,6 +76,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
+    scope: allBranches ? "all" : "branch",
     revenue,
     ordersCount: todayOrders.length,
     tablesOccupied: occupied,

@@ -9,13 +9,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "tableCode, code and subtotal are required" }, { status: 400 });
   }
 
-  const table = await prisma.table.findUnique({ where: { code: tableCode } });
+  const table = await prisma.table.findUnique({ where: { code: tableCode }, include: { restaurant: true } });
   if (!table) return NextResponse.json({ error: "Table not found" }, { status: 404 });
 
   let customerId: string | undefined;
   if (phone) {
     const customer = await prisma.customer.findUnique({
-      where: { restaurantId_phone: { restaurantId: table.restaurantId, phone } },
+      where: { accountId_phone: { accountId: table.restaurant.accountId, phone } },
     });
     customerId = customer?.id;
   }

@@ -42,6 +42,7 @@ interface Order {
   createdAt: string;
   items: { id: string }[];
   table: { name: string } | null;
+  restaurant: { name: string };
 }
 
 interface LoyaltyTransaction {
@@ -198,7 +199,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <div key={o.id} className="flex items-center justify-between border-b pb-2 text-sm last:border-0">
               <div>
                 <p className="font-medium">Order #{o.orderNumber} {o.table && `· ${o.table.name}`}</p>
-                <p className="text-xs text-muted-foreground">{new Date(o.createdAt).toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">
+                  {o.restaurant.name} · {new Date(o.createdAt).toLocaleString()}
+                </p>
               </div>
               <div className="text-right">
                 <p className="font-medium">{formatCurrency(o.total)}</p>

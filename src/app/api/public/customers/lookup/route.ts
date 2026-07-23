@@ -9,11 +9,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "tableCode and phone are required" }, { status: 400 });
   }
 
-  const table = await prisma.table.findUnique({ where: { code: tableCode } });
+  const table = await prisma.table.findUnique({ where: { code: tableCode }, include: { restaurant: true } });
   if (!table) return NextResponse.json({ error: "Table not found" }, { status: 404 });
 
   const customer = await prisma.customer.findUnique({
-    where: { restaurantId_phone: { restaurantId: table.restaurantId, phone } },
+    where: { accountId_phone: { accountId: table.restaurant.accountId, phone } },
   });
 
   if (!customer) return NextResponse.json({ found: false });

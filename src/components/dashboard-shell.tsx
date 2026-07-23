@@ -15,10 +15,12 @@ import {
   Contact,
   Tag,
   CalendarCheck,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Badge } from "@/components/ui/badge";
+import { BranchSwitcher } from "@/components/branch-switcher";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -32,6 +34,7 @@ const NAV = [
   { href: "/dashboard/purchase-orders", label: "Purchase Orders", icon: ShoppingCart },
   { href: "/dashboard/suppliers", label: "Suppliers", icon: Truck },
   { href: "/dashboard/staff", label: "Staff", icon: Users2 },
+  { href: "/dashboard/branches", label: "Branches", icon: Building2, roles: ["OWNER"] },
 ];
 
 const OPERATIONS = [
@@ -42,11 +45,13 @@ const OPERATIONS = [
 ];
 
 export function DashboardShell({
+  restaurantId,
   restaurantName,
   userName,
   role,
   children,
 }: {
+  restaurantId: string;
   restaurantName: string;
   userName: string;
   role: string;
@@ -58,17 +63,21 @@ export function DashboardShell({
     <div className="flex min-h-screen">
       <aside className="hidden w-60 shrink-0 flex-col border-r bg-card md:flex">
         <div className="flex items-center gap-2 border-b px-5 py-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <ChefHat className="h-4 w-4" />
           </div>
-          <div className="leading-tight">
-            <p className="text-sm font-semibold">{restaurantName}</p>
+          <div className="min-w-0 flex-1 leading-tight">
+            {role === "OWNER" ? (
+              <BranchSwitcher restaurantId={restaurantId} restaurantName={restaurantName} />
+            ) : (
+              <p className="truncate text-sm font-semibold">{restaurantName}</p>
+            )}
             <p className="text-xs text-muted-foreground">RestaurantOS</p>
           </div>
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-4">
-          {NAV.map((item) => {
+          {NAV.filter((item) => !item.roles || item.roles.includes(role)).map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
             return (

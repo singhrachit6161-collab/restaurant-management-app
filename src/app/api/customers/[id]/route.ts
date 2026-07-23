@@ -15,14 +15,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       referrals: { select: { id: true, name: true, createdAt: true } },
     },
   });
-  if (!customer || customer.restaurantId !== session.user.restaurantId) {
+  if (!customer || customer.accountId !== session.user.accountId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const [orders, loyaltyTransactions] = await Promise.all([
     prisma.order.findMany({
       where: { customerId: id, status: { not: "CANCELLED" } },
-      include: { items: true, table: true },
+      include: { items: true, table: true, restaurant: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       take: 50,
     }),
@@ -62,7 +62,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params;
 
   const existing = await prisma.customer.findUnique({ where: { id } });
-  if (!existing || existing.restaurantId !== session.user.restaurantId) {
+  if (!existing || existing.accountId !== session.user.accountId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

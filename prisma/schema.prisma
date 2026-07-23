@@ -132,20 +132,32 @@ enum ReservationStatus {
   NO_SHOW
 }
 
-model Restaurant {
+model Account {
   id                     String   @id @default(cuid())
   name                   String
-  address                String?
-  gstNumber              String?
-  currency               String   @default("INR")
-  taxRatePercent         Float    @default(5)
-  serviceChargePercent   Float    @default(0)
-  logoUrl                String?
   loyaltyPointsPerAmount Float    @default(1)
   loyaltyRedemptionValue Float    @default(0.5)
   referralBonusPoints    Int      @default(50)
   createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+
+  restaurants Restaurant[]
+  users       User[]
+  customers   Customer[]
+}
+
+model Restaurant {
+  id                   String   @id @default(cuid())
+  accountId            String
+  account              Account  @relation(fields: [accountId], references: [id])
+  name                 String
+  address              String?
+  gstNumber            String?
+  currency             String   @default("INR")
+  taxRatePercent       Float    @default(5)
+  serviceChargePercent Float    @default(0)
+  logoUrl              String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   users               User[]
   tables              Table[]
@@ -158,15 +170,18 @@ model Restaurant {
   purchaseOrders      PurchaseOrder[]
   supplierInvoices    SupplierInvoice[]
   supplierPayments    SupplierPayment[]
-  customers           Customer[]
   loyaltyTransactions LoyaltyTransaction[]
   coupons             Coupon[]
   couponRedemptions   CouponRedemption[]
   reservations        Reservation[]
+
+  @@index([accountId])
 }
 
 model User {
   id           String     @id @default(cuid())
+  accountId    String
+  account      Account    @relation(fields: [accountId], references: [id])
   name         String
   email        String     @unique
   passwordHash String
@@ -181,6 +196,8 @@ model User {
   purchaseOrders   PurchaseOrder[]
   supplierPayments SupplierPayment[]
   reservations     Reservation[]
+
+  @@index([accountId])
 }
 
 model Table {
@@ -465,8 +482,8 @@ model SupplierPayment {
 
 model Customer {
   id                   String         @id @default(cuid())
-  restaurantId         String
-  restaurant           Restaurant     @relation(fields: [restaurantId], references: [id])
+  accountId            String
+  account              Account        @relation(fields: [accountId], references: [id])
   name                 String
   phone                String
   email                String?
@@ -486,8 +503,8 @@ model Customer {
   referrals           Customer[]           @relation("Referrals")
   reservations        Reservation[]
 
-  @@unique([restaurantId, phone])
-  @@index([restaurantId])
+  @@unique([accountId, phone])
+  @@index([accountId])
 }
 
 model LoyaltyTransaction {

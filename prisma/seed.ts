@@ -8,103 +8,59 @@ function tableCode() {
   return randomBytes(4).toString("hex").toUpperCase();
 }
 
-async function main() {
-  const passwordHash = await bcrypt.hash("demo1234", 10);
+const categoriesData = [
+  { name: "Starters", sortOrder: 0 },
+  { name: "Main Course", sortOrder: 1 },
+  { name: "Breads & Rice", sortOrder: 2 },
+  { name: "Beverages", sortOrder: 3 },
+  { name: "Desserts", sortOrder: 4 },
+];
 
-  const restaurant = await prisma.restaurant.upsert({
-    where: { id: "demo-restaurant" },
-    update: {},
-    create: {
-      id: "demo-restaurant",
-      name: "The Copper Spoon",
-      address: "12 MG Road, Bengaluru",
-      gstNumber: "29ABCDE1234F1Z5",
-      currency: "INR",
-      taxRatePercent: 5,
-      serviceChargePercent: 5,
-    },
-  });
+const itemsData = [
+  { name: "Paneer Tikka", category: "Starters", price: 220, isVeg: true, spicyLevel: SpicyLevel.MEDIUM, prepTimeMinutes: 15, calories: 280, isBestseller: true },
+  { name: "Chicken 65", category: "Starters", price: 260, isVeg: false, spicyLevel: SpicyLevel.HOT, prepTimeMinutes: 18, calories: 320 },
+  { name: "Veg Spring Rolls", category: "Starters", price: 180, isVeg: true, spicyLevel: SpicyLevel.MILD, prepTimeMinutes: 12, calories: 210 },
+  { name: "Butter Chicken", category: "Main Course", price: 340, isVeg: false, spicyLevel: SpicyLevel.MEDIUM, prepTimeMinutes: 22, calories: 460, isBestseller: true },
+  { name: "Paneer Butter Masala", category: "Main Course", price: 300, isVeg: true, spicyLevel: SpicyLevel.MILD, prepTimeMinutes: 20, calories: 410 },
+  { name: "Dal Makhani", category: "Main Course", price: 240, isVeg: true, spicyLevel: SpicyLevel.MILD, prepTimeMinutes: 18, calories: 350 },
+  { name: "Hyderabadi Biryani", category: "Main Course", price: 320, isVeg: false, spicyLevel: SpicyLevel.MEDIUM, prepTimeMinutes: 25, calories: 520, isBestseller: true },
+  { name: "Butter Naan", category: "Breads & Rice", price: 60, isVeg: true, spicyLevel: SpicyLevel.NONE, prepTimeMinutes: 8, calories: 180 },
+  { name: "Jeera Rice", category: "Breads & Rice", price: 150, isVeg: true, spicyLevel: SpicyLevel.NONE, prepTimeMinutes: 10, calories: 260 },
+  { name: "Masala Chaas", category: "Beverages", price: 70, isVeg: true, spicyLevel: SpicyLevel.MILD, prepTimeMinutes: 5, calories: 90 },
+  { name: "Fresh Lime Soda", category: "Beverages", price: 90, isVeg: true, spicyLevel: SpicyLevel.NONE, prepTimeMinutes: 5, calories: 60 },
+  { name: "Gulab Jamun", category: "Desserts", price: 110, isVeg: true, spicyLevel: SpicyLevel.NONE, prepTimeMinutes: 6, calories: 300, isBestseller: true },
+];
 
-  const users: { email: string; name: string; role: Role }[] = [
-    { email: "owner@restaurantos.dev", name: "Aarav Owner", role: Role.OWNER },
-    { email: "manager@restaurantos.dev", name: "Meera Manager", role: Role.MANAGER },
-    { email: "cashier@restaurantos.dev", name: "Kabir Cashier", role: Role.CASHIER },
-    { email: "waiter@restaurantos.dev", name: "Priya Waiter", role: Role.WAITER },
-    { email: "chef@restaurantos.dev", name: "Rohan Chef", role: Role.CHEF },
-    { email: "inventory@restaurantos.dev", name: "Sana Inventory", role: Role.INVENTORY_MANAGER },
-  ];
-
-  for (const u of users) {
-    await prisma.user.upsert({
-      where: { email: u.email },
-      update: {},
-      create: { ...u, passwordHash, restaurantId: restaurant.id },
-    });
-  }
-
-  const tableNames = ["T1", "T2", "T3", "T4", "T5", "T6"];
+async function seedTables(restaurantId: string, tableNames: string[]) {
   const tables = [];
   for (const name of tableNames) {
-    const existing = await prisma.table.findFirst({ where: { restaurantId: restaurant.id, name } });
+    const existing = await prisma.table.findFirst({ where: { restaurantId, name } });
     if (existing) {
       tables.push(existing);
       continue;
     }
     const t = await prisma.table.create({
-      data: {
-        restaurantId: restaurant.id,
-        name,
-        code: tableCode(),
-        capacity: 4,
-      },
+      data: { restaurantId, name, code: tableCode(), capacity: 4 },
     });
     tables.push(t);
   }
+  return tables;
+}
 
-  const categoriesData = [
-    { name: "Starters", sortOrder: 0 },
-    { name: "Main Course", sortOrder: 1 },
-    { name: "Breads & Rice", sortOrder: 2 },
-    { name: "Beverages", sortOrder: 3 },
-    { name: "Desserts", sortOrder: 4 },
-  ];
-
+async function seedMenu(restaurantId: string) {
   const categories: Record<string, string> = {};
   for (const c of categoriesData) {
-    const existing = await prisma.menuCategory.findFirst({
-      where: { restaurantId: restaurant.id, name: c.name },
-    });
-    const cat =
-      existing ??
-      (await prisma.menuCategory.create({
-        data: { ...c, restaurantId: restaurant.id },
-      }));
+    const existing = await prisma.menuCategory.findFirst({ where: { restaurantId, name: c.name } });
+    const cat = existing ?? (await prisma.menuCategory.create({ data: { ...c, restaurantId } }));
     categories[c.name] = cat.id;
   }
 
-  const itemsData = [
-    { name: "Paneer Tikka", category: "Starters", price: 220, isVeg: true, spicyLevel: SpicyLevel.MEDIUM, prepTimeMinutes: 15, calories: 280, isBestseller: true },
-    { name: "Chicken 65", category: "Starters", price: 260, isVeg: false, spicyLevel: SpicyLevel.HOT, prepTimeMinutes: 18, calories: 320 },
-    { name: "Veg Spring Rolls", category: "Starters", price: 180, isVeg: true, spicyLevel: SpicyLevel.MILD, prepTimeMinutes: 12, calories: 210 },
-    { name: "Butter Chicken", category: "Main Course", price: 340, isVeg: false, spicyLevel: SpicyLevel.MEDIUM, prepTimeMinutes: 22, calories: 460, isBestseller: true },
-    { name: "Paneer Butter Masala", category: "Main Course", price: 300, isVeg: true, spicyLevel: SpicyLevel.MILD, prepTimeMinutes: 20, calories: 410 },
-    { name: "Dal Makhani", category: "Main Course", price: 240, isVeg: true, spicyLevel: SpicyLevel.MILD, prepTimeMinutes: 18, calories: 350 },
-    { name: "Hyderabadi Biryani", category: "Main Course", price: 320, isVeg: false, spicyLevel: SpicyLevel.MEDIUM, prepTimeMinutes: 25, calories: 520, isBestseller: true },
-    { name: "Butter Naan", category: "Breads & Rice", price: 60, isVeg: true, spicyLevel: SpicyLevel.NONE, prepTimeMinutes: 8, calories: 180 },
-    { name: "Jeera Rice", category: "Breads & Rice", price: 150, isVeg: true, spicyLevel: SpicyLevel.NONE, prepTimeMinutes: 10, calories: 260 },
-    { name: "Masala Chaas", category: "Beverages", price: 70, isVeg: true, spicyLevel: SpicyLevel.MILD, prepTimeMinutes: 5, calories: 90 },
-    { name: "Fresh Lime Soda", category: "Beverages", price: 90, isVeg: true, spicyLevel: SpicyLevel.NONE, prepTimeMinutes: 5, calories: 60 },
-    { name: "Gulab Jamun", category: "Desserts", price: 110, isVeg: true, spicyLevel: SpicyLevel.NONE, prepTimeMinutes: 6, calories: 300, isBestseller: true },
-  ];
-
   for (const [i, item] of itemsData.entries()) {
-    const existing = await prisma.menuItem.findFirst({
-      where: { restaurantId: restaurant.id, name: item.name },
-    });
+    const existing = await prisma.menuItem.findFirst({ where: { restaurantId, name: item.name } });
     if (existing) continue;
     await prisma.menuItem.create({
       data: {
-        restaurantId: restaurant.id,
+        restaurantId,
         categoryId: categories[item.category],
         name: item.name,
         description: `Freshly prepared ${item.name}`,
@@ -118,6 +74,70 @@ async function main() {
       },
     });
   }
+}
+
+async function main() {
+  const passwordHash = await bcrypt.hash("demo1234", 10);
+
+  const account = await prisma.account.upsert({
+    where: { id: "demo-account" },
+    update: {},
+    create: { id: "demo-account", name: "The Copper Spoon" },
+  });
+
+  const restaurant = await prisma.restaurant.upsert({
+    where: { id: "demo-restaurant" },
+    update: {},
+    create: {
+      id: "demo-restaurant",
+      accountId: account.id,
+      name: "The Copper Spoon — Indiranagar",
+      address: "12 MG Road, Bengaluru",
+      gstNumber: "29ABCDE1234F1Z5",
+      currency: "INR",
+      taxRatePercent: 5,
+      serviceChargePercent: 5,
+    },
+  });
+
+  const branch2 = await prisma.restaurant.upsert({
+    where: { id: "demo-restaurant-2" },
+    update: {},
+    create: {
+      id: "demo-restaurant-2",
+      accountId: account.id,
+      name: "The Copper Spoon — Whitefield",
+      address: "44 ITPL Main Road, Bengaluru",
+      gstNumber: "29ABCDE1234F1Z6",
+      currency: "INR",
+      taxRatePercent: 5,
+      serviceChargePercent: 5,
+    },
+  });
+
+  const users: { email: string; name: string; role: Role; restaurantId: string }[] = [
+    { email: "owner@restaurantos.dev", name: "Aarav Owner", role: Role.OWNER, restaurantId: restaurant.id },
+    { email: "manager@restaurantos.dev", name: "Meera Manager", role: Role.MANAGER, restaurantId: restaurant.id },
+    { email: "cashier@restaurantos.dev", name: "Kabir Cashier", role: Role.CASHIER, restaurantId: restaurant.id },
+    { email: "waiter@restaurantos.dev", name: "Priya Waiter", role: Role.WAITER, restaurantId: restaurant.id },
+    { email: "chef@restaurantos.dev", name: "Rohan Chef", role: Role.CHEF, restaurantId: restaurant.id },
+    { email: "inventory@restaurantos.dev", name: "Sana Inventory", role: Role.INVENTORY_MANAGER, restaurantId: restaurant.id },
+    { email: "manager.whitefield@restaurantos.dev", name: "Arjun Manager", role: Role.MANAGER, restaurantId: branch2.id },
+  ];
+
+  for (const u of users) {
+    await prisma.user.upsert({
+      where: { email: u.email },
+      update: {},
+      create: { ...u, passwordHash, accountId: account.id },
+    });
+  }
+
+  const tables = await seedTables(restaurant.id, ["T1", "T2", "T3", "T4", "T5", "T6"]);
+  await seedTables(branch2.id, ["T1", "T2", "T3"]);
+
+  await seedMenu(restaurant.id);
+  await seedMenu(branch2.id);
 
   const soon = new Date();
   soon.setDate(soon.getDate() + 2);
@@ -377,11 +397,11 @@ async function main() {
     });
   }
 
-  const existingCustomerCount = await prisma.customer.count({ where: { restaurantId: restaurant.id } });
+  const existingCustomerCount = await prisma.customer.count({ where: { accountId: account.id } });
   if (existingCustomerCount === 0) {
     const ananya = await prisma.customer.create({
       data: {
-        restaurantId: restaurant.id,
+        accountId: account.id,
         name: "Ananya Sharma",
         phone: "9876500001",
         email: "ananya.sharma@example.com",
@@ -402,7 +422,7 @@ async function main() {
 
     const rahul = await prisma.customer.create({
       data: {
-        restaurantId: restaurant.id,
+        accountId: account.id,
         name: "Rahul Verma",
         phone: "9876500002",
         email: "rahul.verma@example.com",
@@ -433,7 +453,7 @@ async function main() {
 
     await prisma.customer.create({
       data: {
-        restaurantId: restaurant.id,
+        accountId: account.id,
         name: "Priya Nair",
         phone: "9876500003",
         referralCode: tableCode(),
@@ -475,7 +495,7 @@ async function main() {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const customers = await prisma.customer.findMany({ where: { restaurantId: restaurant.id }, orderBy: { createdAt: "asc" } });
+    const customers = await prisma.customer.findMany({ where: { accountId: account.id }, orderBy: { createdAt: "asc" } });
     const [ananya, rahul, priya] = customers;
 
     await prisma.reservation.createMany({

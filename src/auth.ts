@@ -30,16 +30,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           role: user.role,
           restaurantId: user.restaurantId,
+          accountId: user.accountId,
         };
       },
     }),
   ],
   callbacks: {
-    jwt: async ({ token, user }) => {
+    jwt: async ({ token, user, trigger, session }) => {
       if (user) {
         token.role = user.role;
         token.restaurantId = user.restaurantId;
+        token.accountId = user.accountId;
         token.id = user.id;
+      }
+      if (trigger === "update" && session?.restaurantId) {
+        token.restaurantId = session.restaurantId;
       }
       return token;
     },
@@ -48,6 +53,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.restaurantId = token.restaurantId as string;
+        session.user.accountId = token.accountId as string;
       }
       return session;
     },

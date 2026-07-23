@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   if (!phone) return NextResponse.json({ error: "phone is required" }, { status: 400 });
 
   const customer = await prisma.customer.findUnique({
-    where: { restaurantId_phone: { restaurantId: session.user.restaurantId, phone } },
+    where: { accountId_phone: { accountId: session.user.accountId, phone } },
   });
 
   if (!customer) return NextResponse.json({ found: false });
