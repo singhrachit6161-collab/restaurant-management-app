@@ -2,7 +2,7 @@
 
 An all-in-one restaurant business management system — QR ordering, table management, a kitchen display system, POS billing, and an owner/manager dashboard, built as a single Next.js app.
 
-This is a **Phase 1 MVP** (auth & roles, menu management, QR ordering, kitchen display, POS, billing, table management, live dashboard analytics) plus **inventory & recipe costing**, **purchase management** (suppliers, purchase orders, invoices, payments/dues), **CRM & loyalty** (customer profiles, points, membership tiers, referrals, coupons), **reservation management** (staff and public table bookings, day-agenda view, table assignment/seating), **multi-branch support** (one account operating several restaurant locations, with a shared customer/loyalty base and an owner-level branch switcher), and **SaaS billing** (subscription plans that gate how many branches/staff an account can have). It's the foundation for the larger vision (AI features) described in the original spec — those are not yet built.
+This is a **Phase 1 MVP** (auth & roles, menu management, QR ordering, kitchen display, POS, billing, table management, live dashboard analytics) plus **inventory & recipe costing**, **purchase management** (suppliers, purchase orders, invoices, payments/dues), **CRM & loyalty** (customer profiles, points, membership tiers, referrals, coupons), **reservation management** (staff and public table bookings, day-agenda view, table assignment/seating), **multi-branch support** (one account operating several restaurant locations, with a shared customer/loyalty base and an owner-level branch switcher), **SaaS billing** (subscription plans that gate how many branches/staff an account can have), and an **AI Insights** card on the dashboard (a real Claude API call that summarizes today's business data on demand). It covers the full vision from the original spec.
 
 ## Stack
 
@@ -12,6 +12,7 @@ This is a **Phase 1 MVP** (auth & roles, menu management, QR ordering, kitchen d
 - Auth.js (NextAuth v5) with credentials login + JWT sessions, role-based middleware
 - TanStack Query for client-side data fetching/polling (used in place of WebSockets for "live" updates — KDS/tables/dashboard poll every few seconds)
 - Recharts for the dashboard revenue graph, qrcode.react for table QR codes
+- `@anthropic-ai/sdk` for the AI Insights dashboard card (Claude API, optional — see below)
 
 ## Getting started
 
@@ -39,6 +40,14 @@ The Owner account belongs to both seeded branches — use the branch switcher in
 
 To try the customer QR ordering flow, open `/dashboard/tables` as the owner, click the QR icon on any table, and open the printed link (`/order/<table-code>`) — no login required.
 
+To try the **AI Insights** card on `/dashboard`, add your own key to `.env`:
+
+```bash
+ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+Without a key, the card shows a graceful "unavailable" message instead of erroring.
+
 ## What's implemented
 
 - **Auth & RBAC** — credentials login, JWT sessions, middleware restricting `/dashboard` to Owner/Manager, `/pos` to Cashier, `/waiter` to Waiter, `/kitchen` to Chef (Owner/Manager can reach all operational screens).
@@ -57,6 +66,7 @@ To try the customer QR ordering flow, open `/dashboard/tables` as the owner, cli
 - **Reservation management** (`/dashboard/reservations` for Owner/Manager) — a day-agenda view (date picker, bookings sorted by time, an overdue flag on unconfirmed bookings past their slot) with confirm/seat/cancel/no-show status actions and a table-assignment picker on seating (which flips the assigned table to Occupied). Staff can create a reservation directly (auto-confirmed) or a customer can self-book with no login at `/reserve/[restaurantId]` (lands as Pending, awaiting staff confirmation). Both paths reuse the CRM customer record (phone lookup/creation) so a reservation's history rolls up into the same customer profile as their orders.
 - **Multi-branch support** — an `Account` sits above `Restaurant` (now a "branch"): one login can operate several locations. Customers and their loyalty ledger live at the account level, so a phone number is recognized — and points/tier/referral history follow — at any branch; everything else (menu, inventory, staff, suppliers, coupons, reservations, tables) stays independent per branch. Only the Owner role can operate across branches: a switcher in the sidebar (and a full `/dashboard/branches` page to create new branches) changes the Owner's active branch without a full re-login, and the dashboard gains an "All Branches" aggregate view alongside the existing single-branch one. Every other role (Manager, Cashier, Waiter, Chef, Inventory Manager) stays tied to the one branch they were created under, same as before.
 - **SaaS billing** (`/dashboard/billing`, Owner only) — three subscription tiers (Starter/Growth/Enterprise) that gate how many branches and staff accounts an `Account` can have, a plan comparison with an instant simulated switch (no real payment processor — an invoice is generated but nothing is actually charged), and an invoice history. Limits are enforced server-side on the two places that grow an account: creating a new branch and adding a new staff member both return a clear 403 once a plan's limit is hit. Downgrading never touches what already exists — only new creation going forward is blocked.
+- **AI Insights** (`/dashboard`, Owner/Manager) — a "Generate Insights" card that sends today's dashboard data (revenue, top items, low stock, peak hour, etc. — respecting the same This Branch/All Branches scope as the rest of the dashboard) to the Claude API and returns a short, actionable summary. It's an explicit, on-demand action rather than something that auto-fires on every poll, since each call costs real tokens. Requires `ANTHROPIC_API_KEY` — without it, the card shows a clear "unavailable" message instead of erroring.
 
 ## Notable simplifications (documented, not hidden)
 
@@ -72,7 +82,7 @@ To try the customer QR ordering flow, open `/dashboard/tables` as the owner, cli
 - Only the Owner role can belong to more than one branch at a time (via the active-branch switcher); every other role is created under a single branch and stays there — there's no "transfer a staff member to a different branch" UI, though an Owner can still see and act on a branch's data by switching into it.
 - Billing is entirely simulated — there's no real payment processor, no card capture, no dunning/retry logic, and no automatic monthly renewal (each "invoice" is generated the moment a plan is switched, not on a recurring schedule). It exists to demonstrate plan-based limits, not to actually collect money.
 - Plan limits gate branches and staff seats only — there's no per-feature gating (e.g. reservations or CRM available only on higher tiers) and no proration when switching plans mid-cycle.
-- AI features are not implemented yet.
+- AI Insights is a single on-demand summary, not a chat — there's no follow-up/conversation, no memory of previous summaries, and no scheduled/automatic generation. It reads today's data only.
 
 ## Useful scripts
 

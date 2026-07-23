@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AreaChart,
   Area,
@@ -25,7 +25,11 @@ import {
   AlertTriangle,
   PackageX,
   CalendarClock,
+  Sparkles,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatCard } from "@/components/stat-card";
@@ -49,6 +53,60 @@ interface DashboardStats {
   lowStockCount: number;
   outOfStockCount: number;
   expiringCount: number;
+}
+
+function AiInsightsCard({ scope }: { scope: "branch" | "all" }) {
+  const insights = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/dashboard/insights${scope === "all" ? "?scope=all" : ""}`, {
+        method: "POST",
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      return body.text as string;
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Sparkles className="h-4 w-4" /> AI Insights
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {insights.data && <p className="text-sm leading-relaxed">{insights.data}</p>}
+        {insights.isError && (
+          <p className="text-sm text-muted-foreground">{(insights.error as Error).message}</p>
+        )}
+        {!insights.data && !insights.isError && !insights.isPending && (
+          <p className="text-sm text-muted-foreground">
+            Get a quick, AI-generated read on today&apos;s business — what&apos;s working and what needs attention.
+          </p>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={insights.isPending}
+          onClick={() => insights.mutate()}
+        >
+          {insights.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Analyzing…
+            </>
+          ) : insights.data || insights.isError ? (
+            <>
+              <RefreshCw className="h-4 w-4" /> Regenerate
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4" /> Generate Insights
+            </>
+          )}
+        </Button>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function DashboardPage() {
@@ -85,6 +143,8 @@ export default function DashboardPage() {
           </Tabs>
         )}
       </div>
+
+      <AiInsightsCard scope={effectiveScope} />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <StatCard
