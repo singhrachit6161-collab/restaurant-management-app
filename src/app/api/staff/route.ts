@@ -35,6 +35,7 @@ export async function POST(req: Request) {
       role: body.role,
       passwordHash,
       restaurantId: session.user.restaurantId,
+      accountId: session.user.accountId,
     },
     select: { id: true, name: true, email: true, role: true, active: true, createdAt: true },
   });

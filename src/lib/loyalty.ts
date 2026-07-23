@@ -23,19 +23,32 @@ export function computeEarnedPoints(orderTotal: number, loyaltyPointsPerAmount: 
 }
 
 /**
+ * Loyalty program parameters live on Account (shared across a chain's
+ * branches), while a Restaurant row is a single branch — resolve the
+ * account through the branch so callers can keep passing restaurantId.
+ */
+async function getAccountForRestaurant(restaurantId: string) {
+  const restaurant = await prisma.restaurant.findUnique({
+    where: { id: restaurantId },
+    include: { account: true },
+  });
+  return restaurant?.account ?? null;
+}
+
+/**
  * Called once per order, at the same moment invoice creation happens (first
  * transition to paymentStatus=PAID) — reuses that transition as the
  * idempotency guard so points aren't double-credited on repeat PATCHes.
  */
 export async function earnPointsForOrder(orderId: string, customerId: string, restaurantId: string) {
-  const [order, restaurant, customer] = await Promise.all([
+  const [order, account, customer] = await Promise.all([
     prisma.order.findUnique({ where: { id: orderId } }),
-    prisma.restaurant.findUnique({ where: { id: restaurantId } }),
+    getAccountForRestaurant(restaurantId),
     prisma.customer.findUnique({ where: { id: customerId } }),
   ]);
-  if (!order || !restaurant || !customer) return;
+  if (!order || !account || !customer) return;
 
-  const points = computeEarnedPoints(order.total, restaurant.loyaltyPointsPerAmount);
+  const points = computeEarnedPoints(order.total, account.loyaltyPointsPerAmount);
   if (points <= 0) return;
 
   const newLifetime = customer.lifetimePoints + points;
@@ -73,11 +86,11 @@ async function maybeAwardReferralBonus(customerId: string, restaurantId: string)
   });
   if (paidOrderCount !== 1) return; // not their first paid order
 
-  const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId } });
+  const account = await getAccountForRestaurant(restaurantId);
   const referrer = await prisma.customer.findUnique({ where: { id: customer.referredByCustomerId } });
-  if (!restaurant || !referrer) return;
+  if (!account || !referrer) return;
 
-  const bonus = restaurant.referralBonusPoints;
+  const bonus = account.referralBonusPoints;
   const newLifetime = referrer.lifetimePoints + bonus;
 
   await prisma.$transaction([
@@ -115,18 +128,18 @@ export async function previewRedemption(
 ) {
   if (requestedPoints <= 0) return { points: 0, discount: 0 };
 
-  const [customer, restaurant] = await Promise.all([
+  const [customer, account] = await Promise.all([
     prisma.customer.findUnique({ where: { id: customerId } }),
-    prisma.restaurant.findUnique({ where: { id: restaurantId } }),
+    getAccountForRestaurant(restaurantId),
   ]);
-  if (!customer || !restaurant) return { points: 0, discount: 0 };
+  if (!customer || !account) return { points: 0, discount: 0 };
 
   const maxRedeemableByBalance = Math.floor(customer.loyaltyPoints);
-  const maxRedeemableByOrder = Math.floor(orderMaxDiscount / restaurant.loyaltyRedemptionValue);
+  const maxRedeemableByOrder = Math.floor(orderMaxDiscount / account.loyaltyRedemptionValue);
   const points = Math.max(0, Math.min(requestedPoints, maxRedeemableByBalance, maxRedeemableByOrder));
   if (points <= 0) return { points: 0, discount: 0 };
 
-  const discount = Math.round(points * restaurant.loyaltyRedemptionValue * 100) / 100;
+  const discount = Math.round(points * account.loyaltyRedemptionValue * 100) / 100;
   return { points, discount };
 }
 
@@ -153,21 +166,32 @@ export async function applyRedemption(customerId: string, restaurantId: string, 
   ]);
 }
 
+/**
+ * Customers are scoped to the Account (shared across a chain's branches),
+ * not the individual branch — a phone number is looked up/created once per
+ * account so the same customer is recognized at any branch. Callers still
+ * pass restaurantId since that's what they have on hand; it's resolved to
+ * the owning account here.
+ */
 export async function findOrCreateCustomer(
   restaurantId: string,
   phone: string,
   name: string,
   referralCode?: string
 ) {
+  const account = await getAccountForRestaurant(restaurantId);
+  if (!account) throw new Error("Restaurant not found");
+  const accountId = account.id;
+
   const existing = await prisma.customer.findUnique({
-    where: { restaurantId_phone: { restaurantId, phone } },
+    where: { accountId_phone: { accountId, phone } },
   });
   if (existing) return existing;
 
   let referredByCustomerId: string | null = null;
   if (referralCode) {
     const referrer = await prisma.customer.findFirst({
-      where: { restaurantId, referralCode: referralCode.toUpperCase() },
+      where: { accountId, referralCode: referralCode.toUpperCase() },
     });
     if (referrer) referredByCustomerId = referrer.id;
   }
@@ -181,7 +205,7 @@ export async function findOrCreateCustomer(
 
   return prisma.customer.create({
     data: {
-      restaurantId,
+      accountId,
       phone,
       name,
       referralCode: code,

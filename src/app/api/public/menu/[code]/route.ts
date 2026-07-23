@@ -7,7 +7,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ code: s
   const table = await prisma.table.findUnique({ where: { code } });
   if (!table) return NextResponse.json({ error: "Table not found" }, { status: 404 });
 
-  const restaurant = await prisma.restaurant.findUnique({ where: { id: table.restaurantId } });
+  const restaurant = await prisma.restaurant.findUnique({
+    where: { id: table.restaurantId },
+    include: { account: true },
+  });
   const categories = await prisma.menuCategory.findMany({
     where: { restaurantId: table.restaurantId, active: true },
     orderBy: { sortOrder: "asc" },
@@ -23,7 +26,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ code: s
     restaurant: {
       name: restaurant?.name,
       currency: restaurant?.currency,
-      loyaltyRedemptionValue: restaurant?.loyaltyRedemptionValue,
+      loyaltyRedemptionValue: restaurant?.account.loyaltyRedemptionValue,
     },
     table: { id: table.id, name: table.name },
     categories,

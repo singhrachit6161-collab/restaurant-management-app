@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AreaChart,
@@ -25,10 +27,12 @@ import {
   CalendarClock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatCard } from "@/components/stat-card";
 import { formatCurrency } from "@/lib/utils";
 
 interface DashboardStats {
+  scope: "branch" | "all";
   revenue: number;
   ordersCount: number;
   tablesOccupied: number;
@@ -48,10 +52,15 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
+  const { data: sessionData } = useSession();
+  const isOwner = sessionData?.user?.role === "OWNER";
+  const [scope, setScope] = useState<"branch" | "all">("branch");
+  const effectiveScope = isOwner ? scope : "branch";
+
   const { data, isLoading } = useQuery<DashboardStats>({
-    queryKey: ["dashboard-stats"],
+    queryKey: ["dashboard-stats", effectiveScope],
     queryFn: async () => {
-      const res = await fetch("/api/dashboard/stats");
+      const res = await fetch(`/api/dashboard/stats${effectiveScope === "all" ? "?scope=all" : ""}`);
       if (!res.ok) throw new Error("Failed to load stats");
       return res.json();
     },
@@ -60,9 +69,21 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Live overview of today&apos;s business</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">
+            {effectiveScope === "all" ? "Live overview across all branches, today" : "Live overview of today's business"}
+          </p>
+        </div>
+        {isOwner && (
+          <Tabs value={scope} onValueChange={(v) => setScope(v as "branch" | "all")}>
+            <TabsList>
+              <TabsTrigger value="branch">This Branch</TabsTrigger>
+              <TabsTrigger value="all">All Branches</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
