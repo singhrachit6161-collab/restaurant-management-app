@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/api-auth";
+import { assertCanAddStaff } from "@/lib/billing";
 
 export async function GET() {
   const { session, error } = await requireSession(["OWNER", "MANAGER"]);
@@ -26,6 +27,9 @@ export async function POST(req: Request) {
 
   const existing = await prisma.user.findUnique({ where: { email: body.email } });
   if (existing) return NextResponse.json({ error: "Email already in use" }, { status: 400 });
+
+  const canAdd = await assertCanAddStaff(session.user.accountId);
+  if (!canAdd.ok) return NextResponse.json({ error: canAdd.error }, { status: 403 });
 
   const passwordHash = await bcrypt.hash(body.password, 10);
   const user = await prisma.user.create({

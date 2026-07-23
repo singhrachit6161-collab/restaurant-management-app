@@ -132,6 +132,16 @@ enum ReservationStatus {
   NO_SHOW
 }
 
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+}
+
+enum BillingInvoiceStatus {
+  PAID
+  UNPAID
+}
+
 model Account {
   id                     String   @id @default(cuid())
   name                   String
@@ -140,9 +150,55 @@ model Account {
   referralBonusPoints    Int      @default(50)
   createdAt              DateTime @default(now())
 
-  restaurants Restaurant[]
-  users       User[]
-  customers   Customer[]
+  restaurants     Restaurant[]
+  users           User[]
+  customers       Customer[]
+  subscription    Subscription?
+  billingInvoices BillingInvoice[]
+}
+
+model Plan {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  pricePerMonth Float
+  maxBranches   Int?
+  maxStaff      Int?
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  accountId          String             @unique
+  account            Account            @relation(fields: [accountId], references: [id])
+  planId             String
+  plan               Plan               @relation(fields: [planId], references: [id])
+  status             SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart DateTime           @default(now())
+  currentPeriodEnd   DateTime
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  invoices BillingInvoice[]
+}
+
+model BillingInvoice {
+  id             String               @id @default(cuid())
+  accountId      String
+  account        Account              @relation(fields: [accountId], references: [id])
+  subscriptionId String
+  subscription   Subscription         @relation(fields: [subscriptionId], references: [id])
+  planName       String
+  amount         Float
+  status         BillingInvoiceStatus @default(PAID)
+  periodStart    DateTime
+  periodEnd      DateTime
+  createdAt      DateTime             @default(now())
+
+  @@index([accountId])
+  @@index([subscriptionId])
 }
 
 model Restaurant {

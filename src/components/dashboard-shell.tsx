@@ -16,6 +16,7 @@ import {
   Tag,
   CalendarCheck,
   Building2,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -35,6 +36,7 @@ const NAV = [
   { href: "/dashboard/suppliers", label: "Suppliers", icon: Truck },
   { href: "/dashboard/staff", label: "Staff", icon: Users2 },
   { href: "/dashboard/branches", label: "Branches", icon: Building2, roles: ["OWNER"] },
+  { href: "/dashboard/billing", label: "Billing", icon: CreditCard, roles: ["OWNER"] },
 ];
 
 const OPERATIONS = [
