@@ -7,7 +7,6 @@ const ROLE_HOME: Record<string, string> = {
   CASHIER: "/pos",
   WAITER: "/waiter",
   CHEF: "/kitchen",
-  INVENTORY_MANAGER: "/inventory",
 };
 
 function isAllowed(role: string, pathname: string) {
@@ -15,7 +14,6 @@ function isAllowed(role: string, pathname: string) {
   if (role === "CASHIER") return pathname.startsWith("/pos");
   if (role === "WAITER") return pathname.startsWith("/waiter");
   if (role === "CHEF") return pathname.startsWith("/kitchen");
-  if (role === "INVENTORY_MANAGER") return pathname.startsWith("/inventory");
   return false;
 }
 
@@ -23,7 +21,7 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;
 
-  const protectedPrefixes = ["/dashboard", "/pos", "/waiter", "/kitchen", "/inventory"];
+  const protectedPrefixes = ["/dashboard", "/pos", "/waiter", "/kitchen"];
   const isProtected = protectedPrefixes.some((p) => pathname.startsWith(p));
 
   if (!isProtected) return NextResponse.next();
@@ -43,5 +41,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/pos/:path*", "/waiter/:path*", "/kitchen/:path*", "/inventory/:path*"],
+  matcher: ["/dashboard/:path*", "/pos/:path*", "/waiter/:path*", "/kitchen/:path*"],
 };
